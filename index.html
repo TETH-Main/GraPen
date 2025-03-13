@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ペンツール</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div id="sidebar" class="panel">
+            <div class="action-tools">
+                <button id="undo" class="tool-button" title="元に戻す">
+                    <i class="fas fa-undo"></i>
+                    <span>戻す</span>
+                </button>
+                <button id="redo" class="tool-button" title="やり直し">
+                    <i class="fas fa-redo"></i>
+                    <span>進む</span>
+                </button>
+                <button id="clear-canvas" class="tool-button" title="全消去">
+                    <i class="fas fa-trash-alt"></i>
+                    <span>消去</span>
+                </button>
+                <button id="setting" class="tool-button" title="設定">
+                    <i class="fas fa-gear"></i>
+                </button>
+            </div>
+            <div class="curve-style">
+                <div class="color-picker">
+                    <i class="fas fa-palette"></i>
+                    <input type="color" id="color" value="#000000">
+                </div>
+                <div class="size-picker">
+                    <i class="fas fa-paint-brush"></i>
+                    <input type="range" id="size" min="1" max="20" value="2">
+                </div>
+            </div>
+            <div id="curve-list"></div>
+        </div>
+        <div id="divider"></div>
+        <div id="canvas-container" class="panel">
+            <div id="canvas-toolbar">
+                <button id="home-button" class="tool-button" title="ホーム">
+                    <i class="fas fa-home"></i>
+                </button>
+                <div style="width: 1px; background-color: var(--border-color); margin: 5px 2px;"></div>
+                <button id="cursor-tool" class="tool-button" title="カーソル">
+                    <i class="fas fa-mouse-pointer"></i>
+                </button>
+                <button id="pen-tool" class="tool-button active" title="ペン">
+                    <i class="fas fa-pen"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="js/script.js"></script>
+</body>
+</html>
