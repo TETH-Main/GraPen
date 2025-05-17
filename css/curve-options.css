@@ -1,0 +1,229 @@
+.curve-options {
+    display: flex;
+    gap: 6px;
+    padding: 4px 6px;
+    margin: 4px 0 8px;
+    background: var(--panel-color, #f9f9f9);
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #ddd);
+}
+
+.curve-options.hidden {
+    display: none;
+}
+
+.curve-option-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--disabled-background, #e9ecef);
+    border-color: var(--disabled-border, #ced4da);
+    color: var(--disabled-text, #6c757d);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.curve-option-btn i {
+    font-size: 18px;
+}
+
+.curve-option-btn.active {
+    background: var(--primary-color, #007bff);
+    color: #fff;
+}
+
+.curve-option-btn.active:hover {
+    background: var(--primary-hover-color, #0056b3);
+}
+
+/* 黒枠と斜線のスタイルを追加 */
+.curve-option-btn.disabled {
+    position: relative;
+    border: 1px solid black;
+    overflow: hidden;
+    background: var(--disabled-background, #e9ecef);
+    color: var(--disabled-text, #6c757d);
+    cursor: not-allowed;
+}
+
+.curve-option-btn.disabled::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 150%;
+    height: 1px;
+    background-color: black;
+    transform-origin: 0 100%;
+    transform: rotate(-45deg);
+}
+
+.curve-option-btn.disabled::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 150%;
+    height: 1px;
+    background-color: black;
+    transform-origin: 0 0;
+    transform: rotate(45deg);
+}
+
+/* 黒枠と斜線のスタイルを追加 */
+
+
+.knot-slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.knot-slider-label {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.knot-count-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #ddd;
+    outline: none;
+    flex: 1;
+    min-width: 60px;
+}
+
+.knot-count-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color, #007bff);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.knot-count-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color, #007bff);
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.knot-count-slider:hover::-webkit-slider-thumb {
+    background: var(--primary-hover-color, #0056b3);
+}
+
+.knot-count-slider:hover::-moz-range-thumb {
+    background: var(--primary-hover-color, #0056b3);
+}
+
+.knot-count-value {
+    font-weight: bold;
+    font-size: 12px;
+    min-width: 20px;
+}
+
+/* 曲線移動ボタンのアイコン配置 */
+.icon-container {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 曲線移動ボタンのサブアイコン */
+.icon-container .material-symbols-outlined:nth-child(2) {
+    font-size: 14px;
+    background-color: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 移動モード時の通知バー */
+.movement-mode-notification {
+    position: fixed;
+    top: 46px;
+    left: 0;
+    right: 0;
+    background-color: rgba(66, 133, 244, 0.9);
+    color: white;
+    padding: 8px 15px;
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 901;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: opacity 0.3s, transform 0.3s;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.movement-mode-notification.visible {
+    display: flex;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.movement-mode-notification button {
+    background: white;
+    color: #4285F4;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.movement-mode-notification button:hover {
+    background-color: #f2f2f2;
+}
+
+/* 平行移動スタイル */
+
+.displacement-text {
+    font-size: 12px;
+    font-family: sans-serif;
+    fill: #000000;
+    text-anchor: middle;
+    pointer-events: none;
+    -webkit-text-stroke: 3px white;
+    text-stroke: 3px white;
+}
+
+.x-displacement-text {
+    font-size: 10px;
+    font-family: sans-serif;
+    fill: #1E88E5;
+    text-anchor: middle;
+    pointer-events: none;
+    -webkit-text-stroke: 3px white;
+    text-stroke: 3px white;
+}
+
+.y-displacement-text {
+    font-size: 10px;
+    font-family: sans-serif;
+    fill: #E53935;
+    text-anchor: middle;
+    pointer-events: none;
+    -webkit-text-stroke: 3px white;
+    text-stroke: 3px white;
+}

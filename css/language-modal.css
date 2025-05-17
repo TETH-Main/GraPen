@@ -1,0 +1,74 @@
+#language-panel {
+    width: 120px;
+    max-height: 200px;
+    padding: 4px;
+    overflow-y: auto;
+    /* background: var(--panel-color); */
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#language-panel .settings-body {
+    padding: 0;
+}
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.language-option {
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-color);
+    transition: background-color 0.15s;
+}
+
+.language-option:hover {
+    background-color: var(--hover-background);
+}
+
+.language-option:active {
+    background-color: var(--active-background, #dee2e6);
+    transform: scale(0.98);
+}
+
+.language-option.active {
+    background-color: var(--primary-color-light);
+    color: var(--primary-color);
+}
+
+.language-option .check-icon {
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.language-option.active .check-icon {
+    opacity: 1;
+}
+
+/* スクロールバーをよりコンパクトに */
+#language-panel::-webkit-scrollbar {
+    width: 3px;
+}
+
+#language-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#language-panel::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 1.5px;
+}

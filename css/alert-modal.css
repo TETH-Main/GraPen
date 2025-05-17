@@ -1,0 +1,179 @@
+.alert-modal {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    white-space: nowrap;
+    opacity: 1;
+    transition: all 0.3s ease;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.alert-modal .alert-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alert-modal .alert-message {
+    font-weight: 600;
+}
+
+.alert-modal .alert-link {
+    color: inherit;
+    text-decoration: underline;
+    margin-left: 8px;
+    cursor: pointer;
+    pointer-events: auto;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.alert-modal .alert-link:hover {
+    opacity: 1;
+}
+
+.alert-modal.hidden {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.alert-modal .alert-icon {
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+}
+
+/* 中央配置のバリエーション */
+.alert-modal.alert-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.alert-modal.alert-center-top {
+    top: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.alert-modal.alert-center-bottom {
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.alert-modal.alert-center-left {
+    left: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.alert-modal.alert-center-right {
+    right: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* 角の配置 */
+.alert-modal.alert-top-right {
+    top: 25px;
+    right: 25px;
+}
+
+.alert-modal.alert-bottom-right {
+    bottom: 25px;
+    right: 25px;
+}
+
+.alert-modal.alert-top-left {
+    top: 25px;
+    left: 25px;
+}
+
+.alert-modal.alert-bottom-left {
+    bottom: 25px;
+    left: 25px;
+}
+
+/* タイプのバリエーション */
+.alert-modal.alert-info {
+    border-left: 4px solid #2196F3;
+    color: #0D47A1;
+}
+
+.alert-modal.alert-info .alert-icon {
+    color: #2196F3;
+}
+
+.alert-modal.alert-warning {
+    border-left: 4px solid #FFA726;
+    color: #E65100;
+}
+
+.alert-modal.alert-warning .alert-icon {
+    color: #FFA726;
+}
+
+.alert-modal.alert-error {
+    border-left: 4px solid #EF5350;
+    color: #C62828;
+}
+
+.alert-modal.alert-error .alert-icon {
+    color: #EF5350;
+}
+
+/* 要素内での配置用のスタイル */
+.alert-modal.alert-in-element {
+    position: absolute;
+    z-index: 10;
+}
+
+/* 要素内での中央配置 */
+.alert-in-element.alert-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.alert-in-element.alert-center-top {
+    top: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.alert-in-element.alert-center-bottom {
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.alert-in-element.alert-center-left {
+    left: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.alert-in-element.alert-center-right {
+    right: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+@media screen and (max-width: 610px) {
+    .alert-modal {
+        padding: 10px 16px;
+        font-size: 12px;
+    }
+
+    .alert-modal .alert-icon {
+        font-size: 16px;
+    }
+}

@@ -1,0 +1,75 @@
+/* curve-itemドラッグ時のダミー要素 */
+.curve-drag-dummy {
+    box-shadow: 0 4px 16px rgba(66, 133, 244, 0.18), 0 1px 3px rgba(0, 0, 0, 0.12);
+    background: var(--background);
+    border-radius: 10px;
+    border: 2px solid #4285f4;
+    outline: none;
+    filter: drop-shadow(0 2px 8px rgba(66, 133, 244, 0.12));
+    cursor: grabbing;
+    z-index: 10001;
+    pointer-events: none;
+    opacity: 1 !important;
+    transition: box-shadow 0.2s, transform 0.2s, opacity 0.2s;
+}
+
+/* ゴミ箱吸い込みアニメーション */
+.curve-drag-dummy.curve-drag-dummy-trash {
+    opacity: 0.5 !important;
+    pointer-events: none;
+}
+
+/* 浮かび上がるアニメーション */
+.curve-drag-dummy-animate {
+    transform: scale(1.04);
+    box-shadow: 0 8px 32px rgba(66, 133, 244, 0.24), 0 2px 6px rgba(0, 0, 0, 0.16);
+}
+
+/* ドラッグ中の元curve-item */
+.curve-drag-origin {
+    opacity: 0.3 !important;
+    transition: opacity 0.2s;
+}
+
+/* 挿入インジケーターバー */
+.curve-drag-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #4285f4;
+    border-radius: 2px;
+    z-index: 10000;
+    pointer-events: none;
+    transition: top 0.15s;
+}
+
+/* curve-itemドラッグ時にゴミ箱を赤く */
+#clear-canvas.trash-hover {
+    animation: trash-wave 0.5s infinite;
+}
+
+#clear-canvas.trash-red {
+    color: #ff3b30 !important;
+}
+
+/* 手を振るアニメーション */
+@keyframes trash-wave {
+
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+
+    20% {
+        transform: rotate(-18deg);
+    }
+
+    50% {
+        transform: rotate(18deg);
+    }
+
+    80% {
+        transform: rotate(-10deg);
+    }
+}

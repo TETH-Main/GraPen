@@ -1,0 +1,156 @@
+.approximator-panel {
+    width: 300px;
+    position: absolute;
+    background: var(--panel-color, #f9f9f9);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+.approximator-panel.visible {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* スライダー設定のスタイル */
+.settings-slider {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.slider-container input[type="range"] {
+    flex: 1;
+    height: 4px;
+    background: var(--border-color, #ddd);
+    border-radius: 2px;
+    appearance: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--primary-color, #007bff);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.slider-container input[type="number"] {
+    width: 60px;
+    padding: 4px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    text-align: right;
+}
+
+.settings-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color, #ddd);
+}
+
+.default-btn, .apply-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #ddd);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.default-btn {
+    background: var(--panel-color, #f9f9f9);
+    color: var(--text-color, #333);
+    flex: 1;
+}
+
+.default-btn:hover {
+    background: var(--hover-background, #e9ecef);
+}
+
+.apply-btn {
+    background: var(--primary-color, #007bff);
+    color: #fff;
+    border-color: var(--primary-color, #007bff);
+    flex: 1;
+}
+
+.apply-btn:hover {
+    background: var(--primary-hover-color, #0056b3);
+}
+
+.settings-buttons i {
+    font-size: 18px;
+}
+
+.settings-subheading {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 8px;
+  font-weight: 500;
+  user-select: none;
+}
+
+/* パネル内のcurve-optionsスタイル */
+.approximator-panel .curve-options {
+  display: flex;
+  gap: 6px;
+  padding: 4px 6px;
+  margin: 4px 0 8px;
+  background: var(--panel-color, #f9f9f9);
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #ddd);
+}
+
+.approximator-panel .curve-options.hidden {
+  display: none;
+}
+
+.approximator-panel .curve-option-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--disabled-background, #e9ecef);
+  border-color: var(--disabled-border, #ced4da);
+  color: var(--disabled-text, #6c757d);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.approximator-panel .curve-option-btn i {
+  font-size: 18px;
+}
+
+.approximator-panel .curve-option-btn.active {
+  background: var(--primary-color, #007bff);
+  color: #fff;
+}
+
+.approximator-panel .curve-option-btn.active:hover {
+  background: var(--primary-hover-color, #0056b3);
+}

@@ -1,0 +1,14 @@
+{
+    "available": [
+        {
+            "code": "ja",
+            "name": "日本語",
+            "icon": "🇯🇵"
+        },
+        {
+            "code": "en",
+            "name": "English",
+            "icon": "🇺🇸"
+        }
+    ]
+}
