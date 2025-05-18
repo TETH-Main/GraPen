@@ -4,9 +4,9 @@
 
 ## Links
 
-- [CHANGELOG.md](https://teth-main.github.io/GraPen/CHANGELOG.md)
-- (Planned) [Demo Page (GitHub Pages)](https://teth-main.github.io/GraPen/)
-- [日本語READMEはこちら](https://teth-main.github.io/GraPen/README_ja.md)
+- [CHANGELOG.md](https://github.com/TETH-Main/GraPen/blob/main/CHANGELOG.md)
+- [Demo Page (GitHub Pages)](https://teth-main.github.io/GraPen/)
+- [日本語READMEはこちら](https://github.com/TETH-Main/GraPen/blob/main/README_ja.md)
 
 ## Features
 
@@ -36,15 +36,13 @@
 
 ## Screenshots
 
-![screenshot](https://teth-main.github.io/GraPen/img/screenshot.png)
-
-## Roadmap
+![screenshot](https://raw.githubusercontent.com/TETH-Main/GraPen/main/img/screenshot.png)
 
 - Support for arc and Bézier curve approximation
 - Direct export/import to Desmos
 - Enhanced curve editing tools
 
-See [CHANGELOG.md](https://teth-main.github.io/GraPen/CHANGELOG.md) for detailed updates, planned features, and known issues.
+See [CHANGELOG.md](https://github.com/TETH-Main/GraPen/blob/main/CHANGELOG.md) for detailed updates, planned features, and known issues.
 
 ## Author
 

@@ -4,9 +4,9 @@
 
 ## 関連リンク
 
-- [CHANGELOG.md](https://teth-main.github.io/GraPen/CHANGELOG.md)
-- （予定）[デモページ（GitHub Pages）](https://teth-main.github.io/GraPen/)
-- [English README here](https://teth-main.github.io/GraPen/README.md)
+- [CHANGELOG.md](https://github.com/TETH-Main/GraPen/blob/main/CHANGELOG.md)
+- [デモページ（GitHub Pages）](https://teth-main.github.io/GraPen/)
+- [English README here](https://github.com/TETH-Main/GraPen/blob/main/README.md)
 
 ## 主な機能
 
@@ -36,7 +36,7 @@
 
 ## スクリーンショット
 
-![screenshot](https://teth-main.github.io/GraPen/img/screenshot.png)
+![screenshot](https://raw.githubusercontent.com/TETH-Main/GraPen/main/img/screenshot.png)
 
 ## 今後の予定
 
@@ -44,7 +44,7 @@
 - Desmosへの直接エクスポート/インポート
 - 曲線編集ツールの強化
 
-詳細な更新履歴や今後の予定、既知の課題は [CHANGELOG.md](https://teth-main.github.io/GraPen/CHANGELOG.md) をご覧ください。
+詳細な更新履歴や今後の予定、既知の課題は [CHANGELOG.md](https://github.com/TETH-Main/GraPen/blob/main/CHANGELOG.md) をご覧ください。
 
 ## 作者
 
