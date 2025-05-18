@@ -91,6 +91,9 @@ export class LanguageManager {
         this.updateActiveLanguage();
         this.updatePageText();
         this.hidePanel();
+        
+        const tutorialLink = document.querySelector('.tutorial-link');
+        tutorialLink.href = this.getTutorialUrl();
     }
 
     updateActiveLanguage() {
@@ -176,5 +179,16 @@ export class LanguageManager {
                 this.hidePanel();
             }
         });
+    }
+
+    /**
+     * チュートリアル動画URLを現在の言語に応じて返す
+     */
+    getTutorialUrl() {
+        if (this.currentLang === 'ja') {
+            return 'https://youtu.be/UT3uoCDzC70';
+        } else {
+            return 'https://youtu.be/OuBrW-ygLYg';
+        }
     }
 }

@@ -1,5 +1,6 @@
 export class TutorialModal {
-    constructor() {
+    constructor(languageManager = null) {
+        this.languageManager = languageManager;
         this.container = document.getElementById('tutorial-container');
         if (!this.container) {
             console.error('Tutorial container not found');
@@ -25,6 +26,14 @@ export class TutorialModal {
         this.createTutorialPanel();
         this.checkVisibilityState();
         this.initialize();
+
+        // i18n適用
+        if (this.languageManager) {
+            const i18nElements = this.container.querySelectorAll('[data-i18n]');
+            i18nElements.forEach(el => {
+                this.languageManager.updateSpecificElement(el);
+            });
+        }
     }
 
     checkVisibilityState() {
@@ -76,12 +85,20 @@ export class TutorialModal {
         const footer = document.createElement('div');
         footer.className = 'tutorial-footer';
         footer.innerHTML = `
-            <a href="#" class="tutorial-link" data-i18n="tutorial.more_info">より詳しく基本操作を知りたい方</a>
+            <a href="#" target="_blank" class="tutorial-link" data-i18n="tutorial.more_info">より詳しく基本操作を知りたい方</a>
         `;
         panel.appendChild(footer);
 
         this.container.appendChild(panel);
         this.panel = panel;
+
+        // 言語に応じてリンク先を設定
+        if (this.languageManager) {
+            const tutorialLink = panel.querySelector('.tutorial-link');
+            if (tutorialLink) {
+                tutorialLink.href = this.languageManager.getTutorialUrl();
+            }
+        }
     }
 
     initialize() {
@@ -90,18 +107,7 @@ export class TutorialModal {
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 this.hidePanel();
-                // Save the current date to local storage
                 localStorage.setItem('tutorialLastClosed', new Date().toISOString());
-            });
-        }
-
-        // チュートリアルリンクのクリックイベント
-        const tutorialLink = this.panel.querySelector('.tutorial-link');
-        if (tutorialLink) {
-            tutorialLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                // TODO: チュートリアルページへの遷移やモーダル表示などを実装
-                console.log('チュートリアルリンクがクリックされました');
             });
         }
     }

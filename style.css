@@ -1909,7 +1909,7 @@ tool-button.active:hover {
     gap: 10px;
 }
 
-.modal-header h3 i {
+.modal-header i {
     color: #ffc107;
 }
 

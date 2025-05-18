@@ -37,12 +37,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // UI管理の初期化（curveMovementHandlerを渡す）
     const uiManager = new UIManager(settings, graphCalculator, curveManager, historyManager, curveMovementHandler);
     uiManager.languageManager = languageManager;
+    uiManager.penToolManager.languageManager = languageManager;
 
     // CurveManagerにLanguageManagerを渡す
     curveManager.languageManager = languageManager;
 
-    // Initialize Tutorial Manager
-    const tutorialModal = new TutorialModal();
+    // Tutorial Modalの初期化
+    const tutorialModal = new TutorialModal(languageManager);
 
     // イベントリスナーの設定
     uiManager.setupEventListeners();

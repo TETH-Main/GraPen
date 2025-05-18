@@ -1,12 +1,12 @@
 # GraPen
 
-> This web service approximates curves drawn with a pen and displays them in mathematical formulas.
+> This web service approximates curves drawn with a pen and displays them in mathematical formulas. It is useful for math graph art in conjunction with Desmos.
 
 ## Links
 
-- [CHANGELOG.md](https://github.com/TETH-Main/GraPen/blob/main/README.md)
-- [Demo Page (GitHub Pages)](https://teth-main.github.io/GraPen/)
-- [日本語READMEはこちら](https://github.com/TETH-Main/GraPen/blob/main/README_ja.md)
+- [CHANGELOG.md](https://teth-main.github.io/GraPen/CHANGELOG.md)
+- (Planned) [Demo Page (GitHub Pages)](https://teth-main.github.io/GraPen/)
+- [日本語READMEはこちら](https://teth-main.github.io/GraPen/README_ja.md)
 
 ## Features
 

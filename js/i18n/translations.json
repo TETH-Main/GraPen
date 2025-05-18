@@ -41,7 +41,20 @@
         "approximator.settings.max_knots": "最大節点数(曲線の分割最大数)",
         "approximator.buttons.default": "デフォルト",
         "approximator.buttons.apply": "適用",
-        "curve.knot_slider.label": "節点数:"
+        "curve.knot_slider.label": "節点数:",
+        "approximator_alert.title": "近似できません",
+        "approximator_alert.message.1": "曲線が一価関数ではありません。",
+        "approximator_alert.message.2": "左から右へ一方向に描いてください。",
+        "approximator_alert.message.3": "表現できない曲線例: 円やらせん状の曲線",
+        "approximator_alert.advanced": "拡張モードを有効にする",
+        "approximator_alert.close": "閉じる",
+        "approximator_alert.advanced_mode_message": "拡張モードは現在開発中です。",
+        "approximator_alert.dont_show_again": "今後このメッセージを表示しない",
+        "alert.approximation_failed": "近似処理に失敗しました",
+        "alert.details": "詳細",
+        "delete_mode.notification": "削除モード: 削除したい曲線の×ボタンをクリックしてください",
+        "delete_mode.exit": "削除モード終了"
+
     },
     "en": {
         "header.curve_options": "Curve Options",
@@ -85,6 +98,18 @@
         "approximator.settings.max_knots": "Max number of knots (max curve segments)",
         "approximator.buttons.default": "Default",
         "approximator.buttons.apply": "Apply",
-        "curve.knot_slider.label": "Knots:"
+        "curve.knot_slider.label": "Knots:",
+        "approximator_alert.title": "Curve Approximation Alert",
+        "approximator_alert.message.1": "The curve is not a univalent function.",
+        "approximator_alert.message.2": "Draw in one direction from left to right.",
+        "approximator_alert.message.3": "Examples of curves that cannot be represented: Circles and spirals",
+        "approximator_alert.advanced": "Enable Extended Mode",
+        "approximator_alert.close": "Close",
+        "approximator_alert.advanced_mode_message": "Extended mode is currently under development.",
+        "approximator_alert.dont_show_again": "Do not display this message in the future",
+        "alert.approximation_failed": "Approximation failed",
+        "alert.details": "Details",
+        "delete_mode.notification": "Delete mode: Click the × button of the curve you want to delete.",
+        "delete_mode.exit": "Exit delete mode"
     }
 }

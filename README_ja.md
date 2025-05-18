@@ -1,12 +1,12 @@
 # GraPen
 
-> GraPen(グラペン)は、ペンで描いた曲線を近似し、数式として表示するWebサービスです。
+> ペンで描いた曲線を近似し、数式として表示するWebサービスです。Desmosと組み合わせて数学グラフアートを楽しむのに便利です。
 
 ## 関連リンク
 
-- [CHANGELOG.md](https://github.com/TETH-Main/GraPen/blob/main/README.md)
-- [デモページ（GitHub Pages）](https://teth-main.github.io/GraPen/)
-- [English README here](https://github.com/TETH-Main/GraPen/blob/main/README_ja.md)
+- [CHANGELOG.md](https://teth-main.github.io/GraPen/CHANGELOG.md)
+- （予定）[デモページ（GitHub Pages）](https://teth-main.github.io/GraPen/)
+- [English README here](https://teth-main.github.io/GraPen/README.md)
 
 ## 主な機能
 

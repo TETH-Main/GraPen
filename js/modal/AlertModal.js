@@ -1,3 +1,5 @@
+import { LanguageManager } from '../i18n/LanguageManager.js';
+
 export class AlertModal {
     constructor() {
         // 既存のアラート要素を確認
@@ -5,6 +7,9 @@ export class AlertModal {
         if (!this.alertElement) {
             this.createAlertElement();
         }
+        
+        // Initialize language manager
+        this.languageManager = new LanguageManager();
     }
 
     createAlertElement() {
@@ -24,6 +29,7 @@ export class AlertModal {
      *                                    'top-right', 'bottom-right', 'top-left', 'bottom-left')
      * @param {HTMLElement} options.targetElement - 表示対象のDOM要素
      * @param {Object} options.link - リンクオプション {text: string, onClick: function}
+     * @param {string} options.i18nKey - 国際化キー
      */
     show(message, options = {}) {
         const {
@@ -31,7 +37,8 @@ export class AlertModal {
             duration = 3000,
             position = 'center',  // デフォルトを中央に変更
             targetElement = document.body,
-            link = null
+            link = null,
+            i18nKey = null
         } = options;
 
         // アイコンの設定
@@ -47,12 +54,31 @@ export class AlertModal {
         // タイプと位置のクラスを追加
         this.alertElement.classList.add(`alert-${type}`, `alert-${position}`);
         
+        // i18nキーが指定されている場合は翻訳を取得
+        let displayMessage = message;
+        let linkText = link ? link.text : '';
+        
+        if (i18nKey) {
+            const alertElement = document.createElement('span');
+            alertElement.dataset.i18n = i18nKey;
+            this.languageManager.updateSpecificElement(alertElement);
+            displayMessage = alertElement.textContent || message;
+            
+            // リンクテキストの翻訳
+            if (link && link.i18nKey) {
+                const linkElement = document.createElement('span');
+                linkElement.dataset.i18n = link.i18nKey;
+                this.languageManager.updateSpecificElement(linkElement);
+                linkText = linkElement.textContent || link.text;
+            }
+        }
+        
         // メッセージとリンクを設定
         let content = `
             <div class="alert-icon">${icons[type] || icons.info}</div>
             <div class="alert-content">
-                <strong class="alert-message">${message}</strong>
-                ${link ? `<a href="#" class="alert-link">${link.text}</a>` : ''}
+                <strong class="alert-message">${displayMessage}</strong>
+                ${link ? `<a href="#" class="alert-link">${linkText}</a>` : ''}
             </div>
         `;
         

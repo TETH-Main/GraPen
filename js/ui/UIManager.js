@@ -9,6 +9,7 @@ import { ExportManager } from './ExportManager.js';
 import { ApproximatorManager } from '../approximator/ApproximatorManager.js';
 import { AdvancedModeManager } from './advancedModeManager.js';
 import { AlertModal } from '../modal/AlertModal.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
 
 export class UIManager {
     // curveMovementHandlerを引数に追加
@@ -17,7 +18,7 @@ export class UIManager {
         this.graphCalculator = graphCalculator;
         this.curveManager = curveManager;
         this.historyManager = historyManager;
-        this.curveMovementHandler = curveMovementHandler; // 追加
+        this.curveMovementHandler = curveMovementHandler;
 
         // CurveManagerにGraphCalculatorを渡す
         this.curveManager.graphCalculator = this.graphCalculator;
@@ -31,10 +32,10 @@ export class UIManager {
         // ApprocimatorManagerの初期化
         this.ApproximatorManager = new ApproximatorManager(curveManager);
 
-        // SettingsManagerの初期化（曲線管理と履歴管理と曲線近似管理を渡す）
+        // SettingsManagerの初期化
         this.settingsManager = new SettingsManager(graphCalculator, curveManager, historyManager);
 
-        // ExportManagerの初期化（SettingsManagerを渡す）
+        // ExportManagerの初期化
         this.exportManager = new ExportManager(graphCalculator, this.settingsManager);
 
         // グラフ計算機があれば、曲線管理クラスにグラフ要素を設定
@@ -72,6 +73,8 @@ export class UIManager {
         this.alertModal = new AlertModal();
         // this.settingに入れる 近似失敗した後のモーダルウィンドウを表示非表示のプロパティ
         this.settings.showApproximationErrorModal = true;
+
+        this.languageManager = null;
     }
 
     /**
@@ -325,13 +328,14 @@ export class UIManager {
             // 一価関数で書いてくださいのメッセージを表示
             if (this.settings.showApproximationErrorModal) {
                 this._showApproximationAlert();
-
             } else {
-                this.alertModal.show(curveResult.message, {
+                this.alertModal.show('近似処理に失敗しました', {
                     type: 'error',
                     position: 'center-top',
+                    i18nKey: 'alert.approximation_failed',
                     link: {
                         text: '詳細',
+                        i18nKey: 'alert.details',
                         onClick: () => {
                             this.settings.showApproximationErrorModal = true;
                             this._showApproximationAlert();
@@ -520,7 +524,6 @@ export class UIManager {
             document.removeEventListener('keydown', this.handleEscKey);
             this.showDeleteModeNotification(false);
 
-            // Remove overlay when exiting delete mode
             if (overlay) {
                 overlay.remove();
             }
@@ -534,7 +537,6 @@ export class UIManager {
         const curveList = document.getElementById('curve-list');
         curveList.classList.remove('delete-mode');
 
-        // Remove overlay
         const overlay = document.getElementById('delete-mode-overlay');
         if (overlay) {
             overlay.remove();
@@ -555,14 +557,19 @@ export class UIManager {
      * 削除モード通知の表示/非表示
      */
     showDeleteModeNotification(show) {
+        if (!this.languageManager) {
+            this.languageManager = new LanguageManager();
+        }
+
         let notification = document.querySelector('.delete-mode-notification');
         if (!notification) {
             notification = document.createElement('div');
             notification.className = 'delete-mode-notification';
             notification.innerHTML = `
-            <i class="material-symbols-rounded">warning</i> 削除モード: 削除したい曲線の×ボタンをクリックしてください</span>
-            <button class="exit-delete-mode-btn">削除モード終了</button>
-        `;
+                <i class="material-symbols-rounded">warning</i>
+                <span data-i18n="delete_mode.notification">削除モード: 削除したい曲線の×ボタンをクリックしてください</span>
+                <button class="exit-delete-mode-btn" data-i18n="delete_mode.exit">削除モード終了</button>
+            `;
             document.body.appendChild(notification);
 
             // 終了ボタンにイベントリスナーを追加
@@ -571,6 +578,11 @@ export class UIManager {
                 this.updateClearButtonState();
             });
         }
+        // i18n適用: 毎回適用
+        const i18nElements = notification.querySelectorAll('[data-i18n]');
+        i18nElements.forEach(el => {
+            this.languageManager.updateSpecificElement(el);
+        });
         notification.classList.toggle('visible', show);
     }
 
@@ -810,33 +822,40 @@ export class UIManager {
         const alertBox = document.createElement('div');
         alertBox.className = 'modal-content approximation-alert';
         alertBox.innerHTML = `
-      <div class="modal-header">
-        <h3><i class="material-symbols-rounded">warning</i> 近似できません</h3>
-        <button class="close-modal-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p>曲線が一価関数ではありません。</p>
-        <p>左から右へ一方向に描いてください。</p>
-        <p>表現できない曲線例: 円やらせん状の曲線</p>
-      </div>
-      <div class="modal-footer">
-        <button class="modal-button advanced-mode-btn" disabled style="opacity: 0.5; cursor: not-allowed;">拡張モードを有効にする</button>
-        <button class="modal-button close-btn">閉じる</button>
-      </div>
-      <div class="alert-info">
-        <i class="material-symbols-rounded" style="color: #3498db;">info</i>
-        <span style="font-size: 0.8em; color: #666;">拡張モードは現在開発中です。</span>
-      </div>
-      <div class="alert-info">
-        <label class="dont-show-again">
-          <input type="checkbox" id="dontShowAgain">
-          <span>今後このメッセージを表示しない</span>
-        </label>
-      </div>
-    `;
+            <div class="modal-header">
+                <i class="material-symbols-rounded">warning</i>
+                <h3 data-i18n="approximator_alert.title">近似できません</h3>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p data-i18n="approximator_alert.message.1">曲線が一価関数ではありません。</p>
+                <p data-i18n="approximator_alert.message.2">左から右へ一方向に描いてください。</p>
+                <p data-i18n="approximator_alert.message.3">表現できない曲線例: 円やらせん状の曲線</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-button advanced-mode-btn" disabled style="opacity: 0.5; cursor: not-allowed;" data-i18n="approximator_alert.advanced">拡張モードを有効にする</button>
+                <button class="modal-button close-btn" data-i18n="approximator_alert.close">閉じる</button>
+            </div>
+            <div class="alert-info">
+                <i class="material-symbols-rounded" style="color: #3498db;">info</i>
+                <span style="font-size: 0.8em; color: #666;" data-i18n="approximator_alert.advanced_mode_message">拡張モードは現在開発中です。</span>
+            </div>
+            <div class="alert-info">
+                <label class="dont-show-again">
+                    <input type="checkbox" id="dontShowAgain">
+                    <span data-i18n="approximator_alert.dont_show_again">今後このメッセージを表示しない</span>
+                </label>
+            </div>
+            `;
 
-        alertOverlay.appendChild(alertBox);
         document.body.appendChild(alertOverlay);
+        alertOverlay.appendChild(alertBox);
+
+        // 翻訳を適用する
+        const elements = alertBox.querySelectorAll('[data-i18n]');
+        elements.forEach(el => {
+            this.languageManager.updateSpecificElement(el);
+        });
 
         // イベントリスナー追加
         const closeBtn = alertBox.querySelector('.close-btn');

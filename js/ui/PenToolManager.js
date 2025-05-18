@@ -47,6 +47,9 @@ export class PenToolManager {
         this.initialize();
 
         this.alertModal = new AlertModal();
+
+        // languageManagerは外部からセットされる想定
+        this.languageManager = null;
     }
 
     /**
@@ -327,7 +330,7 @@ export class PenToolManager {
                 type: 'error',
                 position: 'center-top',
                 targetElement: this.panel,
-                message: '<span data-i18n="pen_panel.palette.same_color">同じ色が登録されています。</span>',
+                i18nKey: 'pen_panel.palette.same_color'
             });
         }
     }
@@ -574,9 +577,12 @@ export class PenToolManager {
             overlay.id = 'palette-delete-notification';
             overlay.className = 'palette-delete-notification';
             overlay.innerHTML = `
-        <span><i class="material-symbols-rounded">warning</i> <span data-i18n="pen_panel.palette.delete_mode">パレット削除モード: 削除したい色の×ボタンをクリックしてください</span></span>
-        <button class="palette-exit-delete-mode-btn" data-i18n="pen_panel.palette.exit">削除モード終了</button>
-      `;
+                <span>
+                    <i class="material-symbols-rounded">warning</i>
+                    <span data-i18n="pen_panel.palette.delete_mode">パレット削除モード: 削除したい色の×ボタンをクリックしてください</span>
+                </span>
+                <button class="palette-exit-delete-mode-btn" data-i18n="pen_panel.palette.exit">削除モード終了</button>
+            `;
 
             // カラーピッカーパネルに追加
             const panel = document.getElementById('color-picker-panel');
@@ -589,9 +595,12 @@ export class PenToolManager {
                     exitBtn.addEventListener('click', () => this.toggleDeleteMode());
                 }
             }
-        }
 
-        if (overlay) {
+            const i18nElements = overlay.querySelectorAll('[data-i18n]');
+            i18nElements.forEach(el => {
+                this.languageManager.updateSpecificElement(el);
+            });
+
             overlay.classList.toggle('visible', this.deleteMode);
         }
     }

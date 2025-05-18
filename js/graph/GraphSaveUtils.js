@@ -309,7 +309,7 @@ export function saveToJSON(calculator, filename = 'graph-data', additionalSettin
         
         // 保存するデータを収集
         const saveData = {
-            version: 'b-1.4.13',
+            version: 'v-1.0',
             timestamp: new Date().toISOString(),
             domain: calculator.getDomain(),
             curves: enhancedCurves,
