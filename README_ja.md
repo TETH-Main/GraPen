@@ -36,7 +36,7 @@
 
 ## スクリーンショット
 
-![screenshot](https://raw.githubusercontent.com/TETH-Main/GraPen/main/img/screenshot.png)
+![screenshot](https://github.com/TETH-Main/GraPen/blob/main/img/screenshot.png?raw=true)
 
 ## 今後の予定
 

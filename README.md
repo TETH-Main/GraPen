@@ -36,7 +36,7 @@
 
 ## Screenshots
 
-![screenshot](https://raw.githubusercontent.com/TETH-Main/GraPen/main/img/screenshot.png)
+![screenshot](https://github.com/TETH-Main/GraPen/blob/main/img/screenshot.png?raw=true)
 
 - Support for arc and Bézier curve approximation
 - Direct export/import to Desmos
