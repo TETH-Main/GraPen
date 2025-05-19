@@ -643,50 +643,68 @@ export default class GraphCalculator {
         
         e.preventDefault();
         
-        // ホイールデルタの正規化
-        const delta = (e.deltaY !== 0) ? e.deltaY : e.deltaX;
-        const normalizedDelta = delta / Math.abs(delta);
-        
         // SVG内のマウス位置を取得
         const svgRect = this.svg.getBoundingClientRect();
         const mouseX = e.clientX - svgRect.left;
         const mouseY = e.clientY - svgRect.top;
-        
-        // サイズチェック - 0除算防止
-        if (this.svg.clientWidth <= 0 || this.svg.clientHeight <= 0) {
-            this._logError("Invalid SVG dimensions", {
-                width: this.svg.clientWidth,
-                height: this.svg.clientHeight
-            });
-            return;
-        }
-        
-        // マウス位置のドメイン座標を取得
-        const mouseDomain = this._screenToDomain(mouseX, mouseY);
-        
-        // ズーム係数
-        const zoomFactor = 1 + normalizedDelta * this.options.zoom.speed;
-        
+
         // 現在のドメインをコピー
         const currentDomain = {...this.domainState};
         
-        // ドメインサイズをチェック
-        const width = this.domainState.xMax - this.domainState.xMin;
-        const height = this.domainState.yMax - this.domainState.yMin;
-        
+        // ズーム処理のための定数
+        const CONSTANT_ZOOM_FACTOR = 0.05; // 一定の拡大率
+        const VERTICAL_ZOOM_THRESHOLD = 5; // 垂直移動の閾値（ピクセル）
+
+        // 二本指のトラックパッドの場合（deltaMode === 0）
+        if (e.deltaMode === 0) {
+            // 垂直方向の移動量が大きい場合、それに基づいてズーム
+            if (Math.abs(e.deltaY) > VERTICAL_ZOOM_THRESHOLD) {
+                const zoomFactor = e.deltaY > 0 ? (1 + CONSTANT_ZOOM_FACTOR) : (1 - CONSTANT_ZOOM_FACTOR);
+                this._applyZoom(mouseX, mouseY, zoomFactor, currentDomain);
+            }
+            // 水平方向のパン
+            if (Math.abs(e.deltaX) > 0) {
+                const width = currentDomain.xMax - currentDomain.xMin;
+                const panAmount = (e.deltaX / this.svg.clientWidth) * width;
+                this.domainState.xMin += panAmount;
+                this.domainState.xMax += panAmount;
+                this.draw();
+            }
+        }
+        // 通常のマウスホイール（deltaMode === 1）
+        else {
+            const zoomFactor = e.deltaY > 0 ? (1 + CONSTANT_ZOOM_FACTOR) : (1 - CONSTANT_ZOOM_FACTOR);
+            this._applyZoom(mouseX, mouseY, zoomFactor, currentDomain);
+        }
+    }
+
+    /**
+     * ズーム処理を適用
+     * @private
+     * @param {number} mouseX - マウスのX座標
+     * @param {number} mouseY - マウスのY座標
+     * @param {number} zoomFactor - ズーム係数
+     * @param {Object} currentDomain - 現在のドメイン
+     */
+    _applyZoom(mouseX, mouseY, zoomFactor, currentDomain) {
+        // マウス位置のドメイン座標を取得
+        const mouseDomain = this._screenToDomain(mouseX, mouseY);
+
         // 新しいドメインサイズを計算
+        const width = currentDomain.xMax - currentDomain.xMin;
+        const height = currentDomain.yMax - currentDomain.yMin;
         const newWidth = width * zoomFactor;
         const newHeight = height * zoomFactor;
 
-        // 制限をチェック
+        // ドメインサイズの制限をチェック
         if (newWidth < 1e-4 || newHeight < 1e-4 || newWidth > 1e10 || newHeight > 1e10) {
             return;
         }
-        
-        // マウス位置に対する比率を計算（0～1の範囲で）
+
+        // マウス位置に対する比率を計算
         const ratioX = mouseX / this.svg.clientWidth;
         const ratioY = mouseY / this.svg.clientHeight;
-        
+
         // 新しいドメインを計算
         const targetDomain = {
             xMin: mouseDomain.x - ratioX * newWidth,
@@ -696,12 +714,11 @@ export default class GraphCalculator {
         };
 
         // ドメインの制限をチェック
-        if (!this._checkDomainLimits(targetDomain)) {
-            return;
+        if (this._checkDomainLimits(targetDomain)) {
+            this.domainState = targetDomain;
+            if (this.graphGroup) this._updateGraphGroupTransform();
+            this.draw();
         }
-        
-        // アニメーションを開始
-        this._startZoomAnimation(currentDomain, targetDomain);
     }
     
     /**
@@ -1917,7 +1934,7 @@ export default class GraphCalculator {
      * ドメイン座標を画面座標に変換
      * @param {number} x - ドメインX座標
      * @param {number} y - ドメインY座標
-     * @returns {Object} 画面座標 { x, y }
+     * @returns {Object}  画面座標 { x, y }
      */
     domainToScreen(x, y) {
         return this._domainToScreen(x, y);
