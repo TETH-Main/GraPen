@@ -7,7 +7,7 @@ import { SettingsManager } from './SettingsManager.js';
 import { PenToolManager } from './PenToolManager.js';
 import { ExportManager } from './ExportManager.js';
 import { ApproximatorManager } from '../approximator/ApproximatorManager.js';
-import { AdvancedModeManager } from './advancedModeManager.js';
+import { AdvancedModeManager } from './AdvancedModeManager.js';
 import { AlertModal } from '../modal/AlertModal.js';
 import { LanguageManager } from '../i18n/LanguageManager.js';
 
