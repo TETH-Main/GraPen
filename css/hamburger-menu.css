@@ -1,0 +1,425 @@
+.hamburger-icon {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    position: relative;
+    vertical-align: middle;
+}
+
+.hamburger-icon span {
+    display: block;
+    height: 3px;
+    width: 22px;
+    background: white;
+    border-radius: 2px;
+    margin: 5px auto;
+    transition: all 0.3s;
+}
+
+.header-button:active .hamburger-icon span {
+    background: #007bff;
+}
+
+.hamburger-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 540px;
+    max-width: 95vw;
+    height: 100vh;
+    background: #23272f;
+    color: #fff;
+    z-index: 2002;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(.77,0,.18,1);
+    box-shadow: 2px 0 16px rgba(0,0,0,0.18);
+    display: flex;
+    flex-direction: column;
+}
+
+.hamburger-menu.open {
+    transform: translateX(0);
+}
+
+.hamburger-menu .menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 18px 10px 18px;
+    border-bottom: 1px solid #333;
+}
+
+.hamburger-menu .menu-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+
+.close-menu-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 2em;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+
+.close-menu-btn:hover {
+    color: #ff3b30;
+}
+
+.menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 18px 0 0 0;
+    flex: 1;
+}
+
+.menu-list li {
+    margin: 0;
+    padding: 0;
+}
+
+.menu-list a {
+    display: block;
+    color: #fff;
+    text-decoration: none;
+    padding: 14px 28px;
+    font-size: 1em;
+    border-bottom: 1px solid #2d313a;
+    transition: background 0.18s, color 0.18s;
+}
+
+.menu-list a:hover {
+    background: #31343c;
+    color: #00bfff;
+}
+
+.hamburger-menu-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.38);
+    z-index: 2001;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+}
+
+.hamburger-menu-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 18px 10px 18px;
+    border-bottom: 1px solid #333;
+}
+
+.menu-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+
+.menu-graph-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.graph-block {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #292d36;
+    border-radius: 10px;
+    margin: 0 18px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 0.18s, box-shadow 0.18s;
+    position: relative;
+    outline: none;
+}
+
+.graph-block:focus,
+.graph-block:hover {
+    background: #31343c;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.graph-thumb {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #444 60%, #666 100%);
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.graph-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.graph-title {
+    font-size: 1.08em;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.graph-link {
+    color: #00bfff;
+    font-size: 0.95em;
+    text-decoration: underline;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.graph-link:hover {
+    color: #fff;
+}
+
+.graph-loading-indicator {
+    display: none;
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: 3px solid #444;
+    border-top: 3px solid #00bfff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 2;
+    background: transparent;
+}
+
+.graph-block.loading .graph-loading-indicator {
+    display: block;
+}
+
+.graph-block.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg);}
+    100% { transform: translateY(-50%) rotate(360deg);}
+}
+
+.menu-footer {
+    padding: 18px 0 22px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-top: 1px solid #333;
+    min-height: 60px;
+}
+
+.menu-github-link {
+    color: #fff;
+    font-size: 2.1em;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.18s;
+}
+
+.menu-github-link:hover {
+    color: #00bfff;
+}
+
+.graph-delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: #ff3b30;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: background-color 0.2s;
+}
+
+.graph-delete-btn:hover {
+    background-color: rgba(255, 59, 48, 0.1);
+}
+
+.delete-confirm-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    z-index: 2003;
+    display: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.delete-confirm-modal.open {
+    display: block;
+}
+
+.modal-title {
+    color: #333;
+    font-size: 1.2em;
+    margin-bottom: 16px;
+    font-weight: bold;
+}
+
+.modal-message {
+    color: #666;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.modal-btn.cancel {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.modal-btn.cancel:hover {
+    background-color: #e8e8e8;
+}
+
+.modal-btn.delete {
+    background-color: #ff3b30;
+    color: white;
+}
+
+.modal-btn.delete:hover {
+    background-color: #ff2419;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2002;
+    display: none;
+}
+
+.modal-overlay.open {
+    display: block;
+}
+
+.cache-notice {
+    padding: 14px 20px;
+    text-align: center;
+    color: white;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.cache-notice small {
+    opacity: 0.9;
+}
+
+.graph-hash {
+    color: #bbb;
+    text-decoration: none;
+    font-size: 0.95em;
+}
+
+.graph-block-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+/* モバイル対応 */
+/* @media (max-width: 610px) {
+    .hamburger-menu {
+        width: 95vw;
+        min-width: 180px;
+        max-width: 99vw;
+    }
+
+    .menu-list a {
+        font-size: 1em;
+        padding: 12px 18px;
+    }
+
+    .hamburger-icon {
+        width: 24px;
+        height: 24px;
+    }
+
+    .hamburger-icon span {
+        width: 18px;
+        margin: 4px auto;
+    }
+
+    .graph-thumb {
+        width: 38px;
+        height: 38px;
+    }
+
+    .graph-block {
+        gap: 10px;
+        padding: 10px 8px;
+        margin: 0 6px;
+    }
+        
+    .menu-footer {
+        min-height: 48px;
+        padding: 10px 0 12px 0;
+    }
+
+    .menu-github-link {
+        font-size: 1.5em;
+    }
+
+    .graph-delete-btn {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .graph-delete-btn i {
+        font-size: 18px;
+    }
+} */

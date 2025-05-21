@@ -104,12 +104,21 @@ export class LanguageManager {
     }
 
     updatePageText() {
+        // data-i18n-placeholder属性を持つ要素のplaceholderを翻訳
+        const placeholderElements = document.querySelectorAll('[data-i18n-placeholder]');
+        placeholderElements.forEach(el => {
+            const key = el.dataset.i18nPlaceholder;
+            if (this.translations[this.currentLang] && this.translations[this.currentLang][key]) {
+                el.placeholder = this.translations[this.currentLang][key];
+            }
+        });
+
+        // 通常のdata-i18n属性
         const elements = document.querySelectorAll('[data-i18n]');
         elements.forEach(el => {
             const key = el.dataset.i18n;
             if (!this.translations[this.currentLang] || !this.translations[this.currentLang][key]) return;
 
-            // header, actions, toolsはtitle属性を置換
             if (
                 key.startsWith('header.') ||
                 key.startsWith('actions.') ||
@@ -117,7 +126,6 @@ export class LanguageManager {
             ) {
                 el.title = this.translations[this.currentLang][key];
             } else {
-                // それ以外はテキストを置換
                 if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                     el.placeholder = this.translations[this.currentLang][key];
                 } else {
@@ -130,6 +138,15 @@ export class LanguageManager {
     updateSpecificElement(element) {
       if (!element || !this.translations[this.currentLang]) return;
 
+      // data-i18n-placeholder属性があればplaceholderを翻訳
+      if (element.hasAttribute('data-i18n-placeholder')) {
+        const key = element.dataset.i18nPlaceholder;
+        if (key && this.translations[this.currentLang][key]) {
+          element.placeholder = this.translations[this.currentLang][key];
+        }
+        return;
+      }
+
       const key = element.dataset.i18n;
       if (!key || !this.translations[this.currentLang][key]) return;
 
@@ -140,7 +157,6 @@ export class LanguageManager {
       ) {
         element.title = this.translations[this.currentLang][key];
       } else {
-        // それ以外はテキストを置換
         if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
           element.placeholder = this.translations[this.currentLang][key];
         } else {

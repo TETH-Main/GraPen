@@ -88,7 +88,7 @@ export class CurveManager {
             latexEquations: latexEquations,  // 数式を曲線オブジェクト内に直接保存
             preKnots: preKnots,  // 二次曲線近似用の節点
             knotCount: latexEquations ? latexEquations.length + 1 : 0, // 二次曲線近似用の節点数
-            originalPoints: type === 'quadratic' ? originalPoints : [], // 近似に必要なため元の点データを保存
+            originalPoints: originalPoints, // 近似に必要なため元の点データを保存
             minKnots: minKnots || 2, // 節点の最小数
             maxKnots: maxKnots || 10, // 節点の最大数
         };
@@ -244,8 +244,6 @@ export class CurveManager {
 
         // --- ここからクリック/ドラッグ判定 ---
         curveSetting.on('pointerdown', (event) => {
-            console.log("curve-setting pointerdown");
-
             // 左クリックのみ反応（マウスの場合）
             if (event.pointerType === 'mouse' && event.button !== 0) return;
 
@@ -1057,7 +1055,6 @@ export class CurveManager {
             // const oldColor = this.curves[id].color;
 
             // D3パスの色を更新
-            console.log(this.curves[id].path)
             this.curves[id].path.attr('stroke', color);
             d3.select(`.color-icon[data-id='${id}']`).style('background-color', color);
             this.updateEmphasisCurveColor(color);

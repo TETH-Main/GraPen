@@ -53,8 +53,20 @@
         "alert.approximation_failed": "近似処理に失敗しました",
         "alert.details": "詳細",
         "delete_mode.notification": "削除モード: 削除したい曲線の×ボタンをクリックしてください",
-        "delete_mode.exit": "削除モード終了"
-
+        "delete_mode.exit": "削除モード終了",
+        "menu.saved_graphs": "保存したグラフ",
+        "menu.no_graphs": "保存されたグラフはありません",
+        "menu.delete_graph": "グラフを削除",
+        "menu.delete_confirmation": "このグラフを削除してもよろしいですか？\nこの操作は取り消せません。",
+        "menu.delete_cancel": "キャンセル",
+        "menu.delete_confirm": "削除する",
+        "menu.cache_notice": "注意：キャッシュ削除で表示中のグラフデータは消去されます（データ自体は残ります）",
+        "save_graph": "グラフを保存",
+        "save_graph.title": "グラフを保存",
+        "save_graph.title_label": "タイトル",
+        "save_graph.title_placeholder": "グラフのタイトルを入力",
+        "save_graph.cancel": "キャンセル",
+        "save_graph.save": "保存"
     },
     "en": {
         "header.curve_options": "Curve Options",
@@ -110,6 +122,19 @@
         "alert.approximation_failed": "Approximation failed",
         "alert.details": "Details",
         "delete_mode.notification": "Delete mode: Click the × button of the curve you want to delete.",
-        "delete_mode.exit": "Exit delete mode"
+        "delete_mode.exit": "Exit delete mode",
+        "menu.saved_graphs": "Saved Graphs",
+        "menu.no_graphs": "No saved graphs",
+        "menu.delete_graph": "Delete Graph",
+        "menu.delete_confirmation": "Are you sure you want to delete this graph?\nThis action cannot be undone.",
+        "menu.delete_cancel": "Cancel",
+        "menu.delete_confirm": "Delete",
+        "menu.cache_notice": "Note: Clearing cache will remove displayed graph data (actual data will be preserved)",
+        "save_graph": "Save Graph",
+        "save_graph.title": "Save Graph",
+        "save_graph.title_label": "Title",
+        "save_graph.title_placeholder": "Enter graph title",
+        "save_graph.cancel": "Cancel",
+        "save_graph.save": "Save"
     }
 }

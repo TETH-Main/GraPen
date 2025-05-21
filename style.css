@@ -1019,7 +1019,7 @@ tool-button.active:hover {
     align-items: center;
     justify-content: center;
     width: 40px;
-    height: 40px;
+    height: 36px;
     border: none;
     border-radius: 6px;
     background-color: transparent;
@@ -2064,5 +2064,29 @@ tool-button.active:hover {
 
     100% {
         stroke-dashoffset: 0;
+    }
+}
+
+.graph-title-display {
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+    margin: 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.graph-title-display.active {
+    opacity: 1;
+}
+
+@media screen and (max-width: 768px) {
+    .graph-title-display {
+        max-width: 120px;
+        font-size: 14px;
     }
 }

@@ -35,6 +35,8 @@
     <link rel="stylesheet" href="css/approximator.css">
     <link rel="stylesheet" href="css/curve-item.css">
     <link rel="stylesheet" href="css/language-modal.css">
+    <link rel="stylesheet" href="css/hamburger-menu.css">
+    <link rel="stylesheet" href="css/save-graph.css">
 
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
@@ -61,11 +63,15 @@
     </div>
     <header class="header">
         <div class="header-buttons">
-            <a href="https://github.com/TETH-Main/GraPen" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
-                <button id="github" class="header-button material-symbols-rounded" title="GitHub">
-                    <i class="fa-brands fa-github"></i>
-                </button>
-            </a>
+            <button id="hamburger-menu-btn" class="header-button" title="メニュー" aria-label="メニュー">
+                <span class="hamburger-icon">
+                    <span></span><span></span><span></span>
+                </span>
+            </button>
+            <div id="graph-title-display" class="graph-title-display"></div>
+            <button id="save-graph-btn" class="header-button" title="グラフを保存">
+                <span data-i18n="save_graph">グラフを保存</span>
+            </button>
         </div>
         <div class="header-logo">
             <svg viewBox="0 0 210 80" xmlns="http://www.w3.org/2000/svg">
@@ -93,6 +99,26 @@
             </button>
         </div>
     </header>
+    <!-- メニュー本体とオーバーレイをbody直下に追加 -->
+    <nav id="hamburger-menu" class="hamburger-menu">
+        <div class="menu-header">
+            <span class="menu-title" data-i18n="menu.saved_graphs">保存したグラフ</span>
+            <button id="close-hamburger-menu" class="close-menu-btn" aria-label="閉じる">&times;</button>
+        </div>
+        <div class="menu-graph-list">
+            <div style="color:#bbb;text-align:center;padding:32px 0;" data-i18n="menu.no_graphs">保存されたグラフはありません</div>
+        </div>
+        <div class="cache-notice">
+            <small data-i18n="menu.cache_notice">注意：キャッシュ削除で表示中のグラフデータは消去されます（データ自体は残ります）</small>
+        </div>
+        <div class="menu-footer">
+            <a href="https://github.com/TETH-Main/GraPen" target="_blank" rel="noopener noreferrer"
+                class="menu-github-link" title="GitHub">
+                <i class="fa-brands fa-github"></i>
+            </a>
+        </div>
+    </nav>
+    <div id="hamburger-menu-overlay" class="hamburger-menu-overlay"></div>
     <div class="container">
         <div id="sidebar" class="panel">
             <div class="action-tools">
@@ -168,6 +194,7 @@
     </div>
 
     <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/ui/HamburgerMenu.js"></script>
     <script>
         // ローディングアニメーションの設定
         window.addEventListener('DOMContentLoaded', function () {

@@ -10,15 +10,21 @@ import { ApproximatorManager } from '../approximator/ApproximatorManager.js';
 import { AdvancedModeManager } from './AdvancedModeManager.js';
 import { AlertModal } from '../modal/AlertModal.js';
 import { LanguageManager } from '../i18n/LanguageManager.js';
+import { HamburgerMenu } from './HamburgerMenu.js';
+import { SaveGraphManager } from './SaveGraphManager.js';
 
 export class UIManager {
     // curveMovementHandlerを引数に追加
-    constructor(settings, graphCalculator, curveManager, historyManager, curveMovementHandler = null) {
+    constructor(settings, graphCalculator, curveManager, historyManager, curveMovementHandler = null, graphStorageManager = null) {
         this.settings = settings;
         this.graphCalculator = graphCalculator;
         this.curveManager = curveManager;
         this.historyManager = historyManager;
         this.curveMovementHandler = curveMovementHandler;
+        this.languageManager = null;  // この行を上に移動
+        this.graphStorageManager = graphStorageManager;
+        this.hamburgerMenu = new HamburgerMenu(this.graphStorageManager);
+        this.saveGraphManager = new SaveGraphManager(graphCalculator, graphStorageManager, this.languageManager);
 
         // CurveManagerにGraphCalculatorを渡す
         this.curveManager.graphCalculator = this.graphCalculator;
@@ -73,8 +79,6 @@ export class UIManager {
         this.alertModal = new AlertModal();
         // this.settingに入れる 近似失敗した後のモーダルウィンドウを表示非表示のプロパティ
         this.settings.showApproximationErrorModal = true;
-
-        this.languageManager = null;
     }
 
     /**

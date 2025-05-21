@@ -487,8 +487,6 @@ export class SettingsManager {
 
         // グラフに設定を適用
         this.updateGraphVisibility();
-
-        console.log('グラフ設定を復元しました', this.settings);
     }
 
     /**
@@ -507,96 +505,130 @@ export class SettingsManager {
                 const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
                 console.log('JSONデータを読み込みました:', data);
 
-                // GraphCalculatorのステートを復元
-                console.log('曲線データの復元を開始します...');
-                const result = loadFromJSON(this.graphCalculator, data,
-                    // 設定復元コールバック
-                    (settingsData) => {
-                        console.log('設定データを復元します:', settingsData);
-                        if (settingsData) {
-                            this.settings = { ...this.settings, ...settingsData };
-                            this.applySettings(settingsData);
-                        }
-                    }
-                );
-
-                // 復元に成功した場合、CurveManagerのUIを復元
-                if (result && result.success && this.curveManager) {
-                    console.log('曲線データの復元に成功しました。UIの更新を開始します...');
-                    console.log('復元された曲線データ:', result.curves);
-
-                    // 曲線リストをクリア
-                    this.curveManager.curves = [];
-                    this.curveManager.settings.nextCurveId = 0;
-
-                    // 復元された曲線データを処理
-                    result.curves.forEach((curveData, index) => {
-                        // 強調表示曲線はスキップ
-                        if (curveData.id && curveData.id.toString().startsWith('emphasis-')) {
-                            return;
-                        }
-
-                        // 曲線データから必要な情報を取得
-                        const curveId = this.curveManager.settings.nextCurveId++;
-                        const color = curveData.color || '#000';
-                        const width = curveData.width || 4;
-                        const pathData = curveData.data;
-                        const latexEquations = curveData.latexEquations || [];
-                        const knotPoints = curveData.knotPoints || [];
-                        const isHidden = curveData.isHidden !== undefined ? curveData.isHidden : (curveData.visibility === false);
-                        const isDetailShown = !!curveData.isDetailShown;
-                        const graphCurve = curveData.graphCurve || null;
-                        const svgPath = d3.select(graphCurve.path);
-                        const preKnots = curveData.preKnots || [];
-                        const minKnots = curveData.minKnots || 2;
-                        const maxKnots = curveData.maxKnots || 10;
-                        const originalPoints = curveData.originalPoints || [];
-
-                        // 曲線タイプ（不明な場合は'parametric'）
-                        const type = curveData.type || 'parametric';
-
-                        // CurveManagerに曲線を追加
-                        this.curveManager.addCurve(
-                            curveId,
-                            type,
-                            svgPath,
-                            color,
-                            width,
-                            graphCurve,
-                            latexEquations,
-                            {}, // approximatorSettingsは空でOK
-                            preKnots,
-                            minKnots,
-                            maxKnots,
-                            originalPoints
-                        );
-
-                        // 節点データを保存
-                        if (knotPoints && Array.isArray(knotPoints)) {
-                            this.curveManager.curves[curveId].knotPoints = knotPoints;
-                        }
-
-                        // 表示/非表示状態を設定
-                        this.curveManager.setCurveVisibility(curveId, !isHidden);
-
-                        // 詳細表示状態を設定
-                        this.curveManager.setCurveDetailState(curveId, isDetailShown);
-                    });
-
-                    // 曲線リストのUIを更新
-                    this.curveManager.updateCurveList();
-
-                    console.log('グラフと曲線の状態の復元が完了しました');
-                } else {
-                    console.error('JSONからの復元に失敗しました:', result);
-                    alert('グラフデータの読み込みに失敗しました。');
-                }
+                // グラフデータのロード処理を実行
+                this.loadGraphFromJSON(data);
             } catch (error) {
                 console.error('JSONデータの処理中にエラーが発生しました:', error);
                 console.log('エラーが発生したJSONデータ:', jsonData);
                 alert('グラフデータの読み込みに失敗しました。');
             }
         });
+    }
+
+    /**
+     * JSON形式のデータからグラフを復元する
+     * URLハッシュパラメータや外部ファイルからの読み込みで利用可能
+     * @param {Object} jsonData - JSONデータオブジェクト
+     * @param {boolean} resetHistory - 履歴をリセットするかどうか
+     * @returns {Promise<boolean>} 復元に成功したかどうか
+     */
+    async loadGraphFromJSON(jsonData, resetHistory = true) {
+        if (!jsonData) {
+            console.error('JSONデータが空です');
+            return false;
+        }
+
+        try {
+            // GraphCalculatorのステートを復元
+            const result = loadFromJSON(this.graphCalculator, jsonData,
+                // 設定復元コールバック
+                (settingsData) => {
+                    if (settingsData) {
+                        this.settings = { ...this.settings, ...settingsData };
+                        this.applySettings(settingsData);
+                    }
+                }
+            );
+
+            // 復元に成功した場合、CurveManagerのUIを復元
+            if (result && result.success && this.curveManager) {
+                // 曲線リストをクリア
+                this.curveManager.curves = [];
+                
+                // UIManagerがアクセス可能な場合は設定も更新
+                if (this.curveManager.uiManager) {
+                    this.curveManager.uiManager.settings.nextCurveId = 0;
+                }
+
+                // 復元された曲線データを処理
+                result.curves.forEach((curveData) => {
+                    // 強調表示曲線はスキップ
+                    if (curveData.id && curveData.id.toString().startsWith('emphasis-')) {
+                        return;
+                    }
+
+                    // 曲線データから必要な情報を取得
+                    const curveId = this.curveManager.uiManager ? 
+                        this.curveManager.uiManager.settings.nextCurveId++ : 
+                        this.curveManager.curves.length;
+                        
+                    const color = curveData.color || '#000';
+                    const width = curveData.width || 4;
+                    const latexEquations = curveData.latexEquations || [];
+                    const knotPoints = curveData.knotPoints || [];
+                    const isHidden = curveData.isHidden !== undefined ? curveData.isHidden : (curveData.visibility === false);
+                    const isDetailShown = !!curveData.isDetailShown;
+                    const graphCurve = curveData.graphCurve;
+                    const svgPath = d3.select(graphCurve.path);
+                    const preKnots = curveData.preKnots || [];
+                    const minKnots = curveData.minKnots || 2;
+                    const maxKnots = curveData.maxKnots || 10;
+                    const originalPoints = curveData.originalPoints || [];
+
+                    // 曲線タイプ（不明な場合は'parametric'）
+                    const type = curveData.type || 'parametric';
+
+                    // CurveManagerに曲線を追加
+                    this.curveManager.addCurve(
+                        curveId,
+                        type,
+                        svgPath,
+                        color,
+                        width,
+                        graphCurve,
+                        latexEquations,
+                        {}, // approximatorSettingsは空でOK
+                        preKnots,
+                        minKnots,
+                        maxKnots,
+                        originalPoints
+                    );
+
+                    // 節点データを保存
+                    if (knotPoints && Array.isArray(knotPoints)) {
+                        this.curveManager.curves[curveId].knotPoints = knotPoints;
+                    }
+
+                    // 表示/非表示状態を設定
+                    this.curveManager.setCurveVisibility(curveId, !isHidden);
+
+                    // 詳細表示状態を設定
+                    this.curveManager.setCurveDetailState(curveId, isDetailShown);
+                });
+
+                // 曲線リストのUIを更新
+                this.curveManager.updateCurveList();
+
+                // 履歴をリセットするオプションが有効な場合
+                if (resetHistory && this.historyManager && this.curveManager.uiManager) {
+                    // 履歴をリセット（復元されたグラフは初期状態として扱う）
+                    this.historyManager.undoStack = [];
+                    this.historyManager.redoStack = [];
+                    
+                    // UIManagerに状態更新を通知
+                    this.curveManager.uiManager.updateHistoryButtons();
+                    this.curveManager.uiManager.updateClearButtonState();
+                }
+
+                return true;
+            } else {
+                console.error('JSONからの復元に失敗しました:', result);
+                return false;
+            }
+        } catch (error) {
+            console.error('JSONデータの処理中にエラーが発生しました:', error);
+            return false;
+        }
     }
 
     /**

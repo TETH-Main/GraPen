@@ -549,6 +549,7 @@ export class CurveMovementHandler {
 
         // 移動前の点列を保存（履歴用）
         const oldPoints = [...curve.originalPoints];
+        console.log("oldPoints", curve);
 
         // 点列を移動
         const movedPoints = oldPoints.map(point => [point[0] + deltaX, point[1] + deltaY]);

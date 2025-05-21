@@ -5,9 +5,16 @@ import { UIManager } from './ui/UIManager.js';
 import { TutorialModal } from './modal/TutorialModal.js';
 import { CurveMovementHandler } from './curve/CurveMovementHandler.js';
 import { LanguageManager } from './i18n/LanguageManager.js';
+import { GraphStorageManager } from './storage/GraphStorageManager.js';
+
+// URL からクエリパラメータを取得する関数
+function getUrlParameter(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+}
 
 // 初期化
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     // 初期設定
     const settings = {
         currentColor: "#000000",
@@ -31,11 +38,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // 曲線移動ハンドラの初期化
     const curveMovementHandler = new CurveMovementHandler(curveManager, settings);
 
-    // LanguageManagerのインスタンスを作成
+    // GraphStorageManagerの初期化
+    const graphStorageManager = new GraphStorageManager();
+
     const languageManager = new LanguageManager('ja');
 
-    // UI管理の初期化（curveMovementHandlerを渡す）
-    const uiManager = new UIManager(settings, graphCalculator, curveManager, historyManager, curveMovementHandler);
+    // UI管理の初期化
+    const uiManager = new UIManager(
+        settings, 
+        graphCalculator, 
+        curveManager, 
+        historyManager, 
+        curveMovementHandler,
+        graphStorageManager
+    );
     uiManager.languageManager = languageManager;
     uiManager.penToolManager.languageManager = languageManager;
 
@@ -53,4 +69,67 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 履歴管理の初期化
     historyManager.initManagers(uiManager);
+
+    // URL からハッシュパラメータを取得
+    const hashParam = getUrlParameter('h');
+    if (hashParam) {
+        try {
+            // ローディングインジケータを表示
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '1';
+                loadingOverlay.style.display = 'flex';
+                loadingOverlay.style.pointerEvents = 'auto';
+            }
+
+            // Firestoreからグラフデータを検索
+            const result = await graphStorageManager.checkGraphInFirestore(hashParam);
+            
+            if (result && result.json) {
+                // JSONデータをパース (文字列の場合)
+                const jsonData = typeof result.json === 'string' ? JSON.parse(result.json) : result.json;
+                
+                // SettingsManagerを使ってグラフを復元
+                const success = await uiManager.settingsManager.loadGraphFromJSON(jsonData, true);
+                
+                if (success) {
+                    // タイトルを更新
+                    if (result.title) {
+                        document.title = `${result.title} - GraPen`;
+                        
+                        // ヘッダーのタイトル表示を更新
+                        const titleDisplay = document.getElementById('graph-title-display');
+                        if (titleDisplay) {
+                            titleDisplay.textContent = result.title;
+                            titleDisplay.classList.add('active');
+                        }
+                    }
+                } else {
+                    console.error('グラフの復元に失敗しました');
+                }
+            } else {
+                console.warn(`Graph with hash ${hashParam} not found or could not be loaded.`);
+            }
+            
+            // ローディングインジケータを非表示
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.style.pointerEvents = 'none';
+                }, 500);
+            }
+        } catch (error) {
+            console.error(`Error loading graph with hash ${hashParam}:`, error);
+            // ローディングインジケータを非表示
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.style.pointerEvents = 'none';
+                }, 500);
+            }
+        }
+    }
 });

@@ -11,6 +11,7 @@ export class HistoryManager {
         this.curveManager = null;
         this.graphCalculator = null;
         this.uiManager = null;
+        this.saveGraphManager = null;
     }
 
     initManagers(uiManager) {
@@ -18,6 +19,12 @@ export class HistoryManager {
         this.curveManager = uiManager.curveManager;
         this.graphCalculator = uiManager.graphCalculator;
         this.uiManager = uiManager;
+        this.saveGraphManager = uiManager.saveGraphManager;
+        
+        // SaveGraphManagerにHistoryManagerへの参照を渡す
+        if (this.saveGraphManager) {
+            this.saveGraphManager.setHistoryManager(this);
+        }
     }
 
     /**
@@ -155,6 +162,11 @@ export class HistoryManager {
         const actionCopy = this._deepCopy(action);
         this.undoStack.push(actionCopy);
         this.redoStack = [];
+        
+        // 新しい履歴が追加されたらSaveGraphManagerの状態をリセット
+        if (this.saveGraphManager) {
+            this.saveGraphManager.resetSaveState();
+        }
     }
 
     /**
@@ -544,6 +556,11 @@ export class HistoryManager {
 
         this.curveManager.updateCurveList();
         this.curveManager.redrawCurves();
+        
+        // SaveGraphManagerの状態を更新
+        if (this.saveGraphManager) {
+            this.saveGraphManager.updateSaveButtonState();
+        }
     }
 
     /**
@@ -877,5 +894,10 @@ export class HistoryManager {
 
         this.curveManager.updateCurveList();
         this.curveManager.redrawCurves();
+        
+        // SaveGraphManagerの状態を更新
+        if (this.saveGraphManager) {
+            this.saveGraphManager.updateSaveButtonState();
+        }
     }
 }

@@ -261,7 +261,6 @@ export function saveToJSON(calculator, filename = 'graph-data', additionalSettin
                 const cmCurve = curves.find(c => c.graphCurve && c.graphCurve.id === graphCurve.id);
                 if (cmCurve) {
                     // CurveManagerから追加情報を取得
-                    console.log(cmCurve)
                     const enhancedData = {
                         ...graphCurve,
                         isHidden: cmCurve.isHidden || false,
@@ -269,7 +268,7 @@ export function saveToJSON(calculator, filename = 'graph-data', additionalSettin
                         latexEquations: cmCurve.latexEquations || [], // 数式情報も保存
                         preKnots: cmCurve.preKnots || [], // 曲線の前節点情報
                         type: cmCurve.type || 'parametric', // 曲線のタイプ（デフォルトは'parametric'）
-                        originalPoints: cmCurve.type === 'quadratic' ? cmCurve.originalPoints : [], // 近似に必要なため元の点データを保存
+                        originalPoints: cmCurve.originalPoints, // 近似に必要なため元の点データを保存
                         knotCount: cmCurve.knotCount || 10, // 曲線の節点数
                         minKnots: cmCurve.minKnots || 2, // 曲線の最小節点数
                         maxKnots: cmCurve.maxKnots || 10, // 曲線の最大節点数
@@ -370,7 +369,6 @@ export function loadFromJSON(calculator, jsonData, settingsCallback = null, opti
         // まず曲線をグループ化
         if (Array.isArray(data.curves)) {
             data.curves.forEach(curveData => {
-                console.log('曲線データ:', curveData);
                 const id = curveData.id.toString();
                 const baseId = id.startsWith('emphasis-') ? id.replace('emphasis-', '') : id;
                 
@@ -380,12 +378,10 @@ export function loadFromJSON(calculator, jsonData, settingsCallback = null, opti
                 curveGroups[baseId].push(curveData);
             });
         }
-        console.log('グループ化された曲線データ:', curveGroups);
         console.log(data)
         
         // グループごとに曲線を復元
         Object.values(curveGroups).forEach(groupCurves => {
-            console.log('グループ曲線データ:', groupCurves);
             // グループ内の曲線を強調表示とそれ以外に分類
             const emphasisCurves = groupCurves.filter(c => c.id.toString().startsWith('emphasis-'));
             const mainCurves = groupCurves.filter(c => !c.id.toString().startsWith('emphasis-'));
@@ -567,4 +563,173 @@ function downloadBlob(blob, filename) {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(link.href);
     }, 100);
+}
+
+/**
+ * SVGをPNG形式でBase64データとして取得する（ダウンロードしない）
+ * @param {GraphCalculator} calculator
+ * @param {number} width - 出力画像の幅
+ * @param {number} height - 出力画像の高さ
+ * @param {number} quality - 0.0〜1.0 圧縮率
+ * @returns {Promise<string>} Base64 PNGデータURL
+ */
+export async function getPNGBase64(calculator, width = 128, height = 128, quality = 0.7) {
+    try {
+        const svg = calculator.getSvg();
+        if (!svg) return '';
+        const clonedSvg = svg.cloneNode(true);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        // スタイル埋め込み（省略可: saveToPNG参照）
+        const styleElement = document.createElement('style');
+        const cssRules = [];
+        for (let i = 0; i < document.styleSheets.length; i++) {
+            try {
+                const sheet = document.styleSheets[i];
+                const rules = sheet.cssRules || sheet.rules;
+                for (let j = 0; j < rules.length; j++) {
+                    const rule = rules[j];
+                    if (rule.selectorText && (
+                        rule.selectorText.includes('.graph-') ||
+                        rule.selectorText.includes('grid-line') ||
+                        rule.selectorText.includes('axis-') ||
+                        rule.selectorText.includes('micro-grid-line') ||
+                        rule.selectorText.includes('sub-grid-line') ||
+                        rule.selectorText.includes('curve-path')
+                    )) {
+                        cssRules.push(rule.cssText);
+                    }
+                }
+            } catch (e) {}
+        }
+        styleElement.textContent = cssRules.join('\n');
+        clonedSvg.insertBefore(styleElement, clonedSvg.firstChild);
+
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+
+        return await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                URL.revokeObjectURL(svgUrl);
+                resolve(canvas.toDataURL('image/png', quality));
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(svgUrl);
+                resolve('');
+            };
+            img.src = svgUrl;
+        });
+    } catch (e) {
+        return '';
+    }
+}
+
+/**
+ * グラフの状態をJSON文字列として取得する（ダウンロードしない）
+ * @param {GraphCalculator} calculator
+ * @param {Object} additionalSettings - 追加の設定情報（SettingsManagerなどの状態）
+ * @param {Array} curves - CurveManagerからの曲線情報（表示状態と詳細表示状態を含む）
+ * @returns {string} JSON文字列
+ */
+export function getJSONDataString(calculator, additionalSettings = null, curves = null) {
+    try {
+        // GraphCalculatorの曲線データを取得
+        const graphCurves = calculator.getAllCurves().map(curve => {
+            // 基本的な曲線データ
+            return {
+                id: curve.id,
+                color: curve.color,
+                width: curve.width,
+                opacity: curve.opacity,
+                visibility: curve.visibility !== undefined ? curve.visibility : true,
+                data: curve.originalData,
+                strokeDasharray: curve.strokeDasharray || 'none',
+                style: curve.style || null,
+                points: curve.points || []
+            };
+        });
+        
+        // CurveManagerからの曲線情報と結合
+        let enhancedCurves = graphCurves;
+        if (curves && Array.isArray(curves)) {
+            // GraphCalculatorとCurveManagerの曲線データを統合
+            enhancedCurves = graphCurves.map(graphCurve => {
+                // 対応するCurveManagerの曲線を検索
+                const cmCurve = curves.find(c => c.graphCurve && c.graphCurve.id === graphCurve.id);
+                if (cmCurve) {
+                    // CurveManagerから追加情報を取得
+                    const enhancedData = {
+                        ...graphCurve,
+                        isHidden: cmCurve.isHidden || false,
+                        isDetailShown: cmCurve.isDetailShown || false,
+                        latexEquations: cmCurve.latexEquations || [], // 数式情報も保存
+                        preKnots: cmCurve.preKnots || [], // 曲線の前節点情報
+                        type: cmCurve.type || 'parametric', // 曲線のタイプ
+                        originalPoints: cmCurve.originalPoints, // 近似に必要なため元の点データを保存
+                        knotCount: cmCurve.knotCount || 10, // 曲線の節点数
+                        minKnots: cmCurve.minKnots || 2, // 曲線の最小節点数
+                        maxKnots: cmCurve.maxKnots || 10, // 曲線の最大節点数
+                    };
+                    
+                    // 節点データがある場合は保存
+                    if (cmCurve.knotPoints && cmCurve.knotPoints.length > 0) {
+                        enhancedData.knotPoints = cmCurve.knotPoints.map(knot => ({
+                            x: knot.x,
+                            y: knot.y,
+                            id: knot.point ? knot.point.id : null
+                        }));
+                    }
+                    
+                    // 点データが不足している場合は追加
+                    if (cmCurve.points && cmCurve.points.length > 0 && 
+                        (!graphCurve.points || graphCurve.points.length === 0)) {
+                        enhancedData.points = cmCurve.points.map(point => ({
+                            id: point.id,
+                            x: point.x,
+                            y: point.y,
+                            shape: point.shapeType || 'circle',
+                            size: point.size,
+                            color: point.color,
+                            opacity: point.opacity !== undefined ? point.opacity : 1.0,
+                            visibility: point.visibility !== undefined ? point.visibility : true,
+                            strokeWidth: point.strokeWidth,
+                            style: point.style || {},
+                            properties: point.properties || {}
+                        }));
+                    }
+                    
+                    return enhancedData;
+                }
+                return graphCurve;
+            });
+        }
+        
+        // 保存するデータを収集
+        const saveData = {
+            version: 'v-1.0',
+            timestamp: new Date().toISOString(),
+            domain: calculator.getDomain(),
+            curves: enhancedCurves,
+            options: calculator.options,
+        };
+        
+        // 追加の設定情報がある場合は追加
+        if (additionalSettings) {
+            saveData.settings = additionalSettings;
+        }
+        
+        // JSONに変換して返す
+        return JSON.stringify(saveData);
+    } catch (e) {
+        console.error('JSON文字列作成中にエラーが発生しました:', e);
+        return '';
+    }
 }
