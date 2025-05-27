@@ -664,11 +664,9 @@ export default class GraphCalculator {
             }
             // 水平方向のパン
             if (Math.abs(e.deltaX) > 0) {
-                const width = currentDomain.xMax - currentDomain.xMin;
-                const panAmount = (e.deltaX / this.svg.clientWidth) * width;
-                this.domainState.xMin += panAmount;
-                this.domainState.xMax += panAmount;
-                this.draw();
+                // 右方向なら拡大、左方向なら縮小
+                const zoomFactor = e.deltaX > 0 ? (1 + CONSTANT_ZOOM_FACTOR) : (1 - CONSTANT_ZOOM_FACTOR);
+                this._applyZoom(mouseX, mouseY, zoomFactor, currentDomain);
             }
         }
         // 通常のマウスホイール（deltaMode === 1）
@@ -697,7 +695,7 @@ export default class GraphCalculator {
         const newHeight = height * zoomFactor;
 
         // ドメインサイズの制限をチェック
-        if (newWidth < 1e-4 || newHeight < 1e-4 || newWidth > 1e10 || newHeight > 1e10) {
+        if (newWidth < 1e-4 || newHeight < 1e-4 || newWidth > 1e4 || newHeight > 1e4) {
             return;
         }
 
@@ -807,7 +805,7 @@ export default class GraphCalculator {
                     const height = this.domainState.yMax - this.domainState.yMin;
                     const newWidth = width / zoomFactor;
                     const newHeight = height / zoomFactor;
-                    if (newWidth < 1e-4 || newHeight < 1e-4 || newWidth > 1e10 || newHeight > 1e10) {
+                    if (newWidth < 1e-4 || newHeight < 1e-4 || newWidth > 1e4 || newHeight > 1e4) {
                         return;
                     }
                     // 新しい中心点のドメイン座標
@@ -1942,6 +1940,7 @@ export default class GraphCalculator {
     
     /**
      * SVG要素を取得
+    
      * @returns {SVGElement} SVG要素
      */
     getSvg() {
@@ -2244,8 +2243,8 @@ export default class GraphCalculator {
             return false;
         }
 
-        // 縮小制限: 10^10
-        if (width > 1e10 || height > 1e10) {
+        // 縮小制限: 10^5
+        if (width > 1e4 || height > 1e4) {
             return false;
         }
 

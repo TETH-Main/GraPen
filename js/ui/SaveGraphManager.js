@@ -70,7 +70,7 @@ export class SaveGraphManager {
                                placeholder="グラフのタイトルを入力">
                     </div>
                     <div class="save-graph-notice">
-                        <small>注意：保存直後はデータが一時保存されており、まだ確定していません。</small>
+                        <small data-i18n="menu.save_notice">注意：保存直後はデータが一時保存されており、まだ確定していません。</small>
                     </div>
                     <div class="save-graph-actions">
                         <button class="modal-button save-btn primary" data-i18n="save_graph.save">保存</button>

@@ -13,12 +13,13 @@ export class BSplineApproximator {
         this.options = {
             degree: 2,
             minKnots: 2,
-            maxKnots: 15,
+            initKnots: 10, // 初期ノット数
+            maxKnots: 10,
             ...options
         };
         this.originalPoints = points;
         this._normalizePoints();
-        this.reset(this.options.maxKnots);
+        this.reset(this.options.initKnots);
     }
 
     /**
@@ -50,7 +51,7 @@ export class BSplineApproximator {
     /**
      * 近似処理の初期化
      */
-    reset(numKnots = 15) {
+    reset(numKnots = 10) {
         this.n = this.points.length;
         this.knots_num = Math.max(this.options.minKnots, Math.min(this.options.maxKnots, numKnots));
         this.preKnots = [];
@@ -732,6 +733,38 @@ export class BSplineApproximator {
             latexEquations
         };
     }
+
+    /**
+     * ノット数を設定して近似を実行
+     * @param {Array} knotsNum - ノット数
+     * @returns {this}
+     */
+    setKnotsNum(knotsNum) {
+        if (!Number.isInteger(knotsNum) || knotsNum < this.options.minKnots) {
+            throw new Error('Invalid knots number');
+        }
+
+        const customKnots = this.preKnots
+            .filter(k => k.priority < knotsNum - 2) // 優先度でフィルタリング
+        this.preKnots = customKnots
+
+        // ノット列を設定
+        this.knots = this.preKnots.map(e => e.knot);
+        this.knots_m = this.knots.length;
+        this.knots_num = customKnots.length;
+
+        // グラフ範囲の再設定
+        this._setGraphRange();
+
+        // 近似計算の再実行
+        this.setAb();
+        this.solveAb();
+        this.getCoefficient();
+        this.getSecondDeri();
+
+        return this;
+    }
+
 
     /**
      * カスタムノット列を設定して近似を実行

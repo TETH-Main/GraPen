@@ -5,7 +5,7 @@ import { AlertModal } from '../modal/AlertModal.js';
  * カラーピッカーとサイズスライダーのUIとイベントを管理
  */
 export class PenToolManager {
-    constructor(settings, curveManager) {
+    constructor(settings, curveManager, languageManager) {
         this.settings = settings;
         this.curveManager = curveManager;
         this.prevColor = '#000000';
@@ -46,10 +46,9 @@ export class PenToolManager {
         // ペンツールの初期化
         this.initialize();
 
-        this.alertModal = new AlertModal();
+        this.languageManager = languageManager;
 
-        // languageManagerは外部からセットされる想定
-        this.languageManager = null;
+        this.alertModal = new AlertModal(languageManager);
     }
 
     /**

@@ -106,7 +106,7 @@
             <button id="close-hamburger-menu" class="close-menu-btn" aria-label="閉じる">&times;</button>
         </div>
         <div class="menu-graph-list">
-            <div style="color:#bbb;text-align:center;padding:32px 0;" data-i18n="menu.no_graphs">保存されたグラフはありません</div>
+            <span class="menu-no-graphs" data-i18n="menu.no_graphs">保存されたグラフはありません</span>
         </div>
         <div class="cache-notice">
             <small data-i18n="menu.cache_notice">注意：キャッシュ削除で表示中のグラフデータは消去されます（データ自体は残ります）</small>
@@ -192,6 +192,8 @@
             </div>
         </div>
     </div>
+    <!-- 新機能通知モーダルのルート要素 -->
+    <div id="new-feature-modal-root"></div>
 
     <script type="module" src="js/app.js"></script>
     <script type="module" src="js/ui/HamburgerMenu.js"></script>
@@ -233,6 +235,12 @@
                 e.preventDefault();
                 return false;
             }
+        });
+
+        // サイト離脱時の警告
+        window.addEventListener('beforeunload', function (e) {
+            e.preventDefault();
+            e.returnValue = '';
         });
     </script>
 </body>

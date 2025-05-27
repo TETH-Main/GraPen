@@ -9,8 +9,10 @@ export class ApproximatorManager {
 
         // デフォルト設定を拡張
         this.settings = {
-            showKnotsDefault: true,
-            maxKnots: 10
+            ...this.curveManager.approximatorSettings,
+            // old_index.htmlから追加
+            errorThreshold: 30.0,
+            samplingRate: 1
         };
 
         this.controlElements = new Map(); // 設定要素の参照を保持
@@ -60,6 +62,9 @@ export class ApproximatorManager {
                     </div>
                 </div>
                 ${this._createSliderOption('maxKnots', 'approximator.settings.max_knots', 2, 10, 1)}
+                <!-- old_index.htmlから追加 -->
+                ${this._createSliderOption('errorThreshold', 'approximator.settings.error_threshold', 1, 30, 0.1)}
+                ${this._createSliderOption('samplingRate', 'approximator.settings.sampling_rate', 1, 10, 1)}
                 </div>
                 <div class="settings-buttons">
                 <button id="approximator-default" class="default-btn">
@@ -112,10 +117,29 @@ export class ApproximatorManager {
      * @private
      */
     _createSliderOption(id, i18nKey, min, max, step) {
+        // ラベル・説明文を取得
+        const settingLabels = {
+            maxKnots: {
+                label: '最大節点数',
+                descriptionI18n: 'approximator.settings.max_knots.desc'
+            },
+            errorThreshold: {
+                label: '許容誤差',
+                descriptionI18n: 'approximator.settings.error_threshold.desc'
+            },
+            samplingRate: {
+                label: 'サンプリングレート',
+                descriptionI18n: 'approximator.settings.sampling_rate.desc'
+            }
+            // 必要に応じて他のパラメータも追加
+        };
+        const label = settingLabels[id]?.label || '';
+        const descriptionI18n = settingLabels[id]?.descriptionI18n || '';
+
         return `
             <div class="settings-item">
                 <label class="settings-slider">
-                <span data-i18n="${i18nKey}"></span>
+                <span data-i18n="${i18nKey}">${label}</span>
                 <div class="slider-container">
                     <input type="range" id="${id}" 
                     min="${min}" max="${max}" step="${step}"
@@ -124,6 +148,7 @@ export class ApproximatorManager {
                     min="${min}" max="${max}" step="${step}"
                     value="${this.settings[id]}">
                 </div>
+                ${descriptionI18n ? `<div class="slider-description" data-i18n="${descriptionI18n}"></div>` : ''}
                 </label>
             </div>
             `;
@@ -145,12 +170,33 @@ export class ApproximatorManager {
      * @private
      */
     _logSettingsChange(settingId, value) {
+        // UIラベル・説明文をここで管理
         const settingLabels = {
-            showKnotsDefault: 'デフォルトの節点表示',
-            maxKnots: '最大節点数'
+            showKnotsDefault: {
+                label: '節点表示（デフォルト）',
+                description: '曲線近似時に節点（分割点）を表示するかどうかのデフォルト設定です。'
+            },
+            maxKnots: {
+                label: '最大節点数',
+                description: '曲線近似時に分割できる最大の節点（分割点）の数です。'
+            },
+            errorThreshold: {
+                label: '許容誤差',
+                description: '曲線近似の許容誤差です。低い値にすると元の曲線に忠実な近似になりますが、複雑なパスになります。'
+            },
+            samplingRate: {
+                label: 'サンプリングレート',
+                description: '描画時の点のサンプリング間隔です。大きい値にすると点の数が減り、処理が軽くなりますが精度は下がります。'
+            }
+            // 必要に応じて他のパラメータも追加
         };
 
-        // console.log(`[近似設定変更] ${settingLabels[settingId]}: ${value}`);
+        // 例: 設定変更時にラベルと説明をログ出力
+        if (settingLabels[settingId]) {
+            // console.log(`[近似設定変更] ${settingLabels[settingId].label}: ${value} (${settingLabels[settingId].description})`);
+        } else {
+            // console.log(`[近似設定変更] ${settingId}: ${value}`);
+        }
     }
 
     /**
@@ -159,7 +205,10 @@ export class ApproximatorManager {
     loadDefaultSettings() {
         const defaultSettings = {
             showKnotsDefault: true,
-            maxKnots: 10
+            maxKnots: 10,
+            // old_index.htmlから追加
+            errorThreshold: 30.0,
+            samplingRate: 1
         };
 
         // 設定を更新
@@ -170,7 +219,7 @@ export class ApproximatorManager {
         });
 
         // スライダーの更新
-        ['curvatureThreshold', 'minKnotDistance', 'smoothingFactor', 'maxKnots'].forEach(key => {
+        ['maxKnots', 'errorThreshold', 'samplingRate'].forEach(key => {
             const element = this.controlElements.get(key);
             if (element) {
                 element.value = defaultSettings[key];
@@ -379,10 +428,10 @@ export class ApproximatorManager {
     applySettings() {
         if (this.curveManager?.approximator?.options) {
             const options = this.curveManager.approximator.options;
-            // options.curvatureThreshold = this.settings.curvatureThreshold;
-            // options.minKnotDistance = this.settings.minKnotDistance;
-            // options.smoothingFactor = this.settings.smoothingFactor;
             options.maxKnots = this.settings.maxKnots;
+            // old_index.htmlから追加
+            options.errorThreshold = this.settings.errorThreshold;
+            options.samplingRate = this.settings.samplingRate;
 
             // 節点表示のデフォルト設定を更新
             if (this.curveManager.settings) {

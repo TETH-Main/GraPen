@@ -4,8 +4,9 @@ export class CurveMovementHandler {
      * @param {CurveManager} curveManager
      * @param {Object} settings - 共通設定（selectCurveIdなどを参照）
      */
-    constructor(curveManager, settings) {
+    constructor(curveManager, settings, graphCalculator) {
         this.curveManager = curveManager;
+        this.graphCalculator = graphCalculator;
         this.settings = settings;
         this.enabled = false;
 
@@ -549,7 +550,6 @@ export class CurveMovementHandler {
 
         // 移動前の点列を保存（履歴用）
         const oldPoints = [...curve.originalPoints];
-        console.log("oldPoints", curve);
 
         // 点列を移動
         const movedPoints = oldPoints.map(point => [point[0] + deltaX, point[1] + deltaY]);
@@ -558,7 +558,9 @@ export class CurveMovementHandler {
         const approximationResult = this.curveManager.getCurveApproximationResult(
             curve.type,
             movedPoints,
-            {}  // 追加オプションがあれば指定
+            {
+                knotsNum: curve.type === 'quadratic' ? curve.knotCount : undefined,
+            }
         );
 
         if (!approximationResult || !approximationResult.success) {

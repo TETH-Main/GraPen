@@ -1082,7 +1082,7 @@ tool-button.active:hover {
 }
 
 #tutorial-container {
-    z-index: 2000;
+    z-index: 1000;
     position: absolute;
     bottom: 0;
 }
@@ -1920,7 +1920,7 @@ tool-button.active:hover {
 }
 
 .modal-footer {
-    padding: 15px 20px 0 20px;
+    padding: 15px 20px 15px 20px;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
@@ -1967,8 +1967,36 @@ tool-button.active:hover {
     }
 }
 
-.approximation-alert .modal-body p {
-    margin: 8px 0;
+.approximation-alert-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 450px;
+    height: fit-content;
+    max-height: 90vh;
+    overflow: hidden;
+    z-index: 2003;
+    animation: modalFadeIn 0.2s ease;
+    display: none;
+}
+
+.approximation-alert-modal.open {
+    display: block;
+}
+
+#approximation-alert-overlay.modal-overlay {
+    display: none;
+}
+
+#approximation-alert-overlay.modal-overlay.open {
+    display: block;
 }
 
 /* アラートモーダルの情報欄とチェックボックスを右寄せ */
@@ -2089,4 +2117,51 @@ tool-button.active:hover {
         max-width: 120px;
         font-size: 14px;
     }
+}
+
+#approximation-alert-overlay {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+#approximation-alert-overlay .modal-content {
+    margin: 0;
+    align-self: center;
+}
+
+/* 新機能通知モーダルの中央寄せスタイル */
+#new-feature-modal-root {
+    z-index: 1000;
+}
+
+.new-feature-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 450px;
+    height: fit-content;
+    max-height: 90vh;
+    overflow: hidden;
+    z-index: 1001;
+    animation: modalFadeIn 0.2s ease;
+    display: none;
+}
+
+.new-feature-modal.open {
+    display: block;
 }

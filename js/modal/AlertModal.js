@@ -1,15 +1,14 @@
 import { LanguageManager } from '../i18n/LanguageManager.js';
 
 export class AlertModal {
-    constructor() {
+    constructor(languageManager = null) {
         // 既存のアラート要素を確認
         this.alertElement = document.getElementById('alert-modal');
         if (!this.alertElement) {
             this.createAlertElement();
         }
         
-        // Initialize language manager
-        this.languageManager = new LanguageManager();
+        this.languageManager = languageManager
     }
 
     createAlertElement() {

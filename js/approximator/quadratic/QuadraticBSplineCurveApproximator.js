@@ -10,7 +10,7 @@ export class QuadraticBSplineCurveApproximator {
     constructor(options = {}) {
         this.options = {
             minKnots: 2,
-            maxKnots: 15,
+            maxKnots: 10,
             minKnotDistance: 0.05, // 最小ノード間隔（ドメイン幅に対する比率）
             ...options
         };
@@ -68,6 +68,12 @@ export class QuadraticBSplineCurveApproximator {
             // 近似本体
             // const approx = new BSplineApproximator(optimizedPoints, options);
             const approx = new BSplineApproximator(points, options);
+
+            // 節点数が指定されていれば
+            if (options && options.knotsNum) {
+                // 節点数を指定し近似
+                approx.setKnotsNum(options.knotsNum);
+            }
 
             // 元座標系での近似結果を取得
             const result = approx.getApproximationResult();

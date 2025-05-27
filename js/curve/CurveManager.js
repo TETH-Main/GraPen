@@ -8,7 +8,7 @@ import { PiecewiseLinearApproximator } from '../approximator/linear/PiecewiseLin
  * 曲線の追加、更新、削除などの操作を担当
  */
 export class CurveManager {
-    constructor(settings, historyManager, graphCalculator = null) {
+    constructor(settings, historyManager, graphCalculator = null, languageManager) {
         this.settings = settings;
         this.historyManager = historyManager;
         this.graphCalculator = graphCalculator; // GraphCalculator参照を保持
@@ -17,7 +17,7 @@ export class CurveManager {
         this.emphasisPath = null;
         this.emphasisGraphCurveId = null; // GraphCalculator内の強調表示用曲線ID
         this.uiManager = null;
-        this.languageManager = null;
+        this.languageManager = languageManager;
 
         // 数式ハイライト機能クラスを初期化
         this.equationHighlighter = graphCalculator ? new EquationHighlighter(graphCalculator) : null;
@@ -28,7 +28,15 @@ export class CurveManager {
 
         this.approximatorSettings = {
             showKnotsDefault: true,
-            maxKnots: 10
+            maxKnots: 10,
+            // errorThreshold: 30.0,
+            // samplingRate: 1,
+            // curvatureThreshold: 0.1,
+            // minSegmentLength: 20,
+            // angleThreshold: 45,
+            // loopDetectionThreshold: 20,
+            // waveDetectionThreshold: 0.05,
+            // spiralDetectionThreshold: 0.2
         };
 
         // clear-canvasにドラッグ関連イベントを設定
@@ -116,8 +124,8 @@ export class CurveManager {
             .attr('class', 'curve-item')
             .attr('data-id', id)
             .html(`
-          <span class="curve-id no-copy">${id}</span>
-      `);
+                <span class="curve-id no-copy">${id}</span>
+            `);
 
         // curve-settingにdraggable属性を付与
         const curveSetting = curveItem.append('div')
@@ -125,14 +133,14 @@ export class CurveManager {
             .attr('draggable', true)
             .attr('data-id', id)  // Add data-id attribute here
             .html(`
-        <div class="color-icon ${isHidden ? "hidden-curve" : ""}" style="background-color: ${color};" data-id="${id}"></div>
-        <button class="details-dropdown ${isDetailShown ? "rotated" : ""}" data-id="${id}">
-          <i class="material-symbols-rounded none-event">keyboard_control_key</i>
-        </button>
-        <button class="delete-btn" data-id="${id}">
-          <i class="material-symbols-rounded none-event">close_small</i>
-        </button>
-      `);
+                <div class="color-icon ${isHidden ? "hidden-curve" : ""}" style="background-color: ${color};" data-id="${id}"></div>
+                <button class="details-dropdown ${isDetailShown ? "rotated" : ""}" data-id="${id}">
+                <i class="material-symbols-rounded none-event">keyboard_control_key</i>
+                </button>
+                <button class="delete-btn" data-id="${id}">
+                <i class="material-symbols-rounded none-event">close_small</i>
+                </button>
+            `);
 
         // 曲線の詳細部分を追加
         const curveDetails = curveItem.append('div')
@@ -218,7 +226,7 @@ export class CurveManager {
 
                             copyButton.on('click', (event) => {
                                 event.stopPropagation();
-                                this.copyEquationToClipboard(eq.formula, copyButton.node());
+                                this.copyEquationToClipboard(eq, copyButton.node());
                             });
 
                             // EquationHighlighterを使って数式ハイライト機能を追加
@@ -232,7 +240,7 @@ export class CurveManager {
 
                             copyButton.on('click', (event) => {
                                 event.stopPropagation();
-                                this.copyEquationToClipboard(eq.formula, copyButton.node());
+                                this.copyEquationToClipboard(eq, copyButton.node());
                             });
                         }
                     }, 0);
@@ -1501,13 +1509,18 @@ export class CurveManager {
 
     /**
      * 数式をクリップボードにコピー
-     * @param {string} formula - コピーする数式
+     * @param {string} eq - 数式オブジェクト
      * @param {HTMLElement} buttonElement - コピーボタン要素
      */
-    copyEquationToClipboard(formula, buttonElement) {
+    copyEquationToClipboard(eq, buttonElement) {
         try {
             // 数式から"y = "を除去（あれば）
-            const cleanFormula = formula.replace(/^y\s*=\s*/, '');
+            // const cleanFormula = formula.replace(/^y\s*=\s*/, '');
+
+            // Desmosのpiecewise関数の形式に対応
+            // eq.formulaの"("と")"を\\left\(と\\right\)に置き換え
+            const formula = eq.formula.replace(/\(/g, '\\left(').replace(/\)/g, '\\right)');
+            const cleanFormula = `${formula} \\left\\{${eq.domain.start} \\le x \\le ${eq.domain.end}\\right\\}`;
 
             // クリップボードにコピー
             navigator.clipboard.writeText(cleanFormula).then(() => {
@@ -1903,7 +1916,7 @@ export class CurveManager {
                     const copyButton = equationContent.querySelector('.equation-copy-btn');
                     copyButton.onclick = (event) => {
                         event.stopPropagation();
-                        this.copyEquationToClipboard(eq.formula, copyButton);
+                        this.copyEquationToClipboard(eq, copyButton);
                     };
                     // ハイライトイベント
                     equationContent.onmouseenter = () => this.highlightFunction(curveId, i, eq);

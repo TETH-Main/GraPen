@@ -9,19 +9,18 @@ import { ExportManager } from './ExportManager.js';
 import { ApproximatorManager } from '../approximator/ApproximatorManager.js';
 import { AdvancedModeManager } from './AdvancedModeManager.js';
 import { AlertModal } from '../modal/AlertModal.js';
-import { LanguageManager } from '../i18n/LanguageManager.js';
 import { HamburgerMenu } from './HamburgerMenu.js';
 import { SaveGraphManager } from './SaveGraphManager.js';
 
 export class UIManager {
     // curveMovementHandlerを引数に追加
-    constructor(settings, graphCalculator, curveManager, historyManager, curveMovementHandler = null, graphStorageManager = null) {
+    constructor(settings, graphCalculator, curveManager, historyManager, curveMovementHandler = null, graphStorageManager = null, languageManager) {
         this.settings = settings;
         this.graphCalculator = graphCalculator;
         this.curveManager = curveManager;
         this.historyManager = historyManager;
         this.curveMovementHandler = curveMovementHandler;
-        this.languageManager = null;  // この行を上に移動
+        this.languageManager = languageManager;
         this.graphStorageManager = graphStorageManager;
         this.hamburgerMenu = new HamburgerMenu(this.graphStorageManager);
         this.saveGraphManager = new SaveGraphManager(graphCalculator, graphStorageManager, this.languageManager);
@@ -30,7 +29,7 @@ export class UIManager {
         this.curveManager.graphCalculator = this.graphCalculator;
 
         // PenToolManagerの初期化
-        this.penToolManager = new PenToolManager(settings, this.curveManager);
+        this.penToolManager = new PenToolManager(settings, this.curveManager, this.languageManager);
 
         // GraphCalculatorUtilsの初期化
         this.graphUtils = new GraphCalculatorUtils(graphCalculator);
@@ -76,9 +75,122 @@ export class UIManager {
 
         this.advancedModeManager = new AdvancedModeManager();
 
-        this.alertModal = new AlertModal();
+        this.alertModal = new AlertModal(this.languageManager);
         // this.settingに入れる 近似失敗した後のモーダルウィンドウを表示非表示のプロパティ
         this.settings.showApproximationErrorModal = true;
+
+        // 近似不可能アラートの「今後このメッセージを表示しない」設定をlocalStorageから復元
+        const dontShow = localStorage.getItem('approximationAlertDontShow');
+        if (dontShow === 'true') {
+            this.settings.showApproximationErrorModal = false;
+        } else {
+            this.settings.showApproximationErrorModal = true;
+        }
+
+        // 近似不可能アラートモーダルの初期化
+        this.createApproximationAlertModal();
+    }
+
+    /**
+     * 近似不可能アラートモーダルの生成
+     */
+    createApproximationAlertModal() {
+        // 既に存在する場合は何もしない
+        if (document.getElementById('approximation-alert-modal')) return;
+
+        const modalHtml = `
+            <div class="modal-overlay" id="approximation-alert-overlay"></div>
+            <div class="modal-content approximation-alert-modal" id="approximation-alert-modal">
+                <div class="modal-header">
+                    <h3>
+                        <i class="material-symbols-rounded">warning</i>
+                        <span data-i18n="approximator_alert.title">近似できません</span>
+                    </h3>
+                    <button class="close-modal-btn" type="button">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p data-i18n="approximator_alert.message.1">曲線が一価関数ではありません。</p>
+                    <p data-i18n="approximator_alert.message.2">左から右へ一方向に描いてください。</p>
+                    <p data-i18n="approximator_alert.message.3">表現できない曲線例: 円やらせん状の曲線</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-button advanced-mode-btn" disabled style="opacity: 0.5; cursor: not-allowed;" data-i18n="approximator_alert.advanced">拡張モードを有効にする</button>
+                    <button class="modal-button close-btn" data-i18n="approximator_alert.close">閉じる</button>
+                </div>
+                <div class="alert-info">
+                    <i class="material-symbols-rounded" style="color: #3498db;">info</i>
+                    <span style="font-size: 0.8em; color: #666;" data-i18n="approximator_alert.advanced_mode_message">拡張モードは現在開発中です。</span>
+                </div>
+                <div class="alert-info">
+                    <label class="dont-show-again">
+                        <input type="checkbox" id="dontShowAgain">
+                        <span data-i18n="approximator_alert.dont_show_again">今後このメッセージを表示しない</span>
+                    </label>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        this._approximationAlertModal = document.getElementById('approximation-alert-modal');
+        this._approximationAlertOverlay = document.getElementById('approximation-alert-overlay');
+        const checkbox = this._approximationAlertModal.querySelector('#dontShowAgain');
+
+        // i18n適用
+        const elements = this._approximationAlertModal.querySelectorAll('[data-i18n]');
+        elements.forEach(el => {
+            this.languageManager.updateSpecificElement(el);
+        });
+
+        // チェックボックスの初期値をlocalStorageから復元
+        const dontShow = localStorage.getItem('approximationAlertDontShow');
+        checkbox.checked = (dontShow === 'true');
+
+        // 閉じるボタン
+        const closeBtn = this._approximationAlertModal.querySelector('.close-btn');
+        const closeModalBtn = this._approximationAlertModal.querySelector('.close-modal-btn');
+        [closeBtn, closeModalBtn].forEach(btn => {
+            if (btn) btn.addEventListener('click', () => this.hideApproximationAlert());
+        });
+
+        // オーバーレイクリックで閉じる
+        this._approximationAlertOverlay.addEventListener('click', () => this.hideApproximationAlert());
+
+        // 拡張モードボタン
+        const advancedModeBtn = this._approximationAlertModal.querySelector('.advanced-mode-btn');
+        if (advancedModeBtn) {
+            advancedModeBtn.addEventListener('click', () => {
+                this.advancedModeManager.enableAdvancedMode(true);
+                this.hideApproximationAlert();
+            });
+        }
+
+        // チェックボックス
+        checkbox.addEventListener('change', (e) => {
+            this.settings.showApproximationErrorModal = !e.target.checked;
+            localStorage.setItem('approximationAlertDontShow', e.target.checked ? 'true' : 'false');
+        });
+    }
+
+    /**
+     * 近似不可能アラートの表示
+     * @private
+     */
+    _showApproximationAlert() {
+        if (!this._approximationAlertModal || !this._approximationAlertOverlay) {
+            this.createApproximationAlertModal();
+        }
+        this._approximationAlertModal.classList.add('open');
+        this._approximationAlertOverlay.classList.add('open');
+    }
+
+    /**
+     * 近似不可能アラートの非表示
+     */
+    hideApproximationAlert() {
+        if (this._approximationAlertModal && this._approximationAlertOverlay) {
+            this._approximationAlertModal.classList.remove('open');
+            this._approximationAlertOverlay.classList.remove('open');
+        }
     }
 
     /**
@@ -103,6 +215,43 @@ export class UIManager {
         // Undo/Redoボタンの初期状態を確認
         this.updateHistoryButtons();
         this.updateClearButtonState();
+
+        // Ctrl+Z, Ctrl+Y キーイベントで undo/redo
+        document.addEventListener('keydown', (event) => {
+            // IME入力中やinput/textarea内は無視
+            const tag = event.target.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target.isContentEditable) return;
+
+            // Ctrl+Z (undo)
+            if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                if (!this.historyManager.isUndoStackEmpty()) {
+                    this.undo();
+                    this.updateHistoryButtons();
+                    this.updateClearButtonState();
+                }
+            }
+            // Ctrl+Y (redo)
+            if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'y') {
+                event.preventDefault();
+                if (!this.historyManager.isRedoStackEmpty()) {
+                    this.redo();
+                    this.updateHistoryButtons();
+                    this.updateClearButtonState();
+                }
+            }
+            // Ctrl+S (save graph)
+            if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                if (this.saveGraphManager) {
+                    // Saveボタンが有効な場合のみ保存
+                    const saveBtn = document.getElementById(this.saveGraphManager.saveButtonId);
+                    if (saveBtn && !saveBtn.disabled) {
+                        this.saveGraphManager.showModal();
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -342,6 +491,8 @@ export class UIManager {
                         i18nKey: 'alert.details',
                         onClick: () => {
                             this.settings.showApproximationErrorModal = true;
+                            const checkbox = this._approximationAlertModal.querySelector('#dontShowAgain');
+                            checkbox.checked = false; // チェックを外す
                             this._showApproximationAlert();
                         }
                     }
@@ -561,10 +712,6 @@ export class UIManager {
      * 削除モード通知の表示/非表示
      */
     showDeleteModeNotification(show) {
-        if (!this.languageManager) {
-            this.languageManager = new LanguageManager();
-        }
-
         let notification = document.querySelector('.delete-mode-notification');
         if (!notification) {
             notification = document.createElement('div');
@@ -819,82 +966,20 @@ export class UIManager {
      * @private
      */
     _showApproximationAlert() {
-        // モーダルウィンドウスタイルのアラート作成
-        const alertOverlay = document.createElement('div');
-        alertOverlay.className = 'modal-overlay';
+        if (!this._approximationAlertModal || !this._approximationAlertOverlay) {
+            this.createApproximationAlertModal();
+        }
+        this._approximationAlertModal.classList.add('open');
+        this._approximationAlertOverlay.classList.add('open');
+    }
 
-        const alertBox = document.createElement('div');
-        alertBox.className = 'modal-content approximation-alert';
-        alertBox.innerHTML = `
-            <div class="modal-header">
-                <i class="material-symbols-rounded">warning</i>
-                <h3 data-i18n="approximator_alert.title">近似できません</h3>
-                <button class="close-modal-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p data-i18n="approximator_alert.message.1">曲線が一価関数ではありません。</p>
-                <p data-i18n="approximator_alert.message.2">左から右へ一方向に描いてください。</p>
-                <p data-i18n="approximator_alert.message.3">表現できない曲線例: 円やらせん状の曲線</p>
-            </div>
-            <div class="modal-footer">
-                <button class="modal-button advanced-mode-btn" disabled style="opacity: 0.5; cursor: not-allowed;" data-i18n="approximator_alert.advanced">拡張モードを有効にする</button>
-                <button class="modal-button close-btn" data-i18n="approximator_alert.close">閉じる</button>
-            </div>
-            <div class="alert-info">
-                <i class="material-symbols-rounded" style="color: #3498db;">info</i>
-                <span style="font-size: 0.8em; color: #666;" data-i18n="approximator_alert.advanced_mode_message">拡張モードは現在開発中です。</span>
-            </div>
-            <div class="alert-info">
-                <label class="dont-show-again">
-                    <input type="checkbox" id="dontShowAgain">
-                    <span data-i18n="approximator_alert.dont_show_again">今後このメッセージを表示しない</span>
-                </label>
-            </div>
-            `;
-
-        document.body.appendChild(alertOverlay);
-        alertOverlay.appendChild(alertBox);
-
-        // 翻訳を適用する
-        const elements = alertBox.querySelectorAll('[data-i18n]');
-        elements.forEach(el => {
-            this.languageManager.updateSpecificElement(el);
-        });
-
-        // イベントリスナー追加
-        const closeBtn = alertBox.querySelector('.close-btn');
-        const closeModalBtn = alertBox.querySelector('.close-modal-btn');
-        const advancedModeBtn = alertBox.querySelector('.advanced-mode-btn');
-
-        // 閉じるボタン
-        closeBtn.addEventListener('click', () => {
-            document.body.removeChild(alertOverlay);
-        });
-
-        // モーダル閉じるボタン
-        closeModalBtn.addEventListener('click', () => {
-            document.body.removeChild(alertOverlay);
-        });
-
-        // 拡張モードボタン
-        advancedModeBtn.addEventListener('click', () => {
-            // 拡張モードを有効化
-            this.advancedModeManager.enableAdvancedMode(true);
-            // モーダルを閉じる
-            document.body.removeChild(alertOverlay);
-        });
-
-        // オーバーレイをクリックしても閉じる
-        alertOverlay.addEventListener('click', (e) => {
-            if (e.target === alertOverlay) {
-                document.body.removeChild(alertOverlay);
-            }
-        });
-
-        // チェックボックスの変更イベントリスナーを追加
-        const checkbox = alertBox.querySelector('#dontShowAgain');
-        checkbox.addEventListener('change', (e) => {
-            this.settings.showApproximationErrorModal = !e.target.checked;
-        });
+    /**
+     * 近似不可能アラートの非表示
+     */
+    hideApproximationAlert() {
+        if (this._approximationAlertModal && this._approximationAlertOverlay) {
+            this._approximationAlertModal.classList.remove('open');
+            this._approximationAlertOverlay.classList.remove('open');
+        }
     }
 }

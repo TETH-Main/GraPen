@@ -6,6 +6,7 @@ import { TutorialModal } from './modal/TutorialModal.js';
 import { CurveMovementHandler } from './curve/CurveMovementHandler.js';
 import { LanguageManager } from './i18n/LanguageManager.js';
 import { GraphStorageManager } from './storage/GraphStorageManager.js';
+import { NewFeatureModal } from './modal/NewFeatureModal.js';
 
 // URL からクエリパラメータを取得する関数
 function getUrlParameter(name) {
@@ -32,16 +33,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 履歴管理の初期化
     const historyManager = new HistoryManager();
 
+    const languageManager = new LanguageManager('ja');
+
     // 曲線管理の初期化
-    const curveManager = new CurveManager(settings, historyManager, graphCalculator);
+    const curveManager = new CurveManager(settings, historyManager, graphCalculator, languageManager);
 
     // 曲線移動ハンドラの初期化
-    const curveMovementHandler = new CurveMovementHandler(curveManager, settings);
+    const curveMovementHandler = new CurveMovementHandler(curveManager, settings, graphCalculator);
 
     // GraphStorageManagerの初期化
     const graphStorageManager = new GraphStorageManager();
-
-    const languageManager = new LanguageManager('ja');
 
     // UI管理の初期化
     const uiManager = new UIManager(
@@ -50,16 +51,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         curveManager, 
         historyManager, 
         curveMovementHandler,
-        graphStorageManager
+        graphStorageManager,
+        languageManager
     );
-    uiManager.languageManager = languageManager;
-    uiManager.penToolManager.languageManager = languageManager;
-
-    // CurveManagerにLanguageManagerを渡す
-    curveManager.languageManager = languageManager;
 
     // Tutorial Modalの初期化
     const tutorialModal = new TutorialModal(languageManager);
+
+    // 新機能通知モーダルの表示（バージョンは適宜変更）
+    const newFeatureModal = new NewFeatureModal(languageManager);
 
     // イベントリスナーの設定
     uiManager.setupEventListeners();

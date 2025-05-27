@@ -105,29 +105,32 @@ export class HamburgerMenu {
         }
         // グラフリストが空になった場合のメッセージを表示
         const listElem = document.querySelector('.menu-graph-list');
-        if (listElem.children.length === 0) {
-            listElem.innerHTML = '<div style="color:#bbb;text-align:center;padding:32px 0;">保存されたグラフはありません</div>';
+        const noGraphsSpan = listElem.querySelector('.menu-no-graphs');
+        if (listElem.querySelectorAll('.graph-block-link').length === 0) {
+            if (noGraphsSpan) noGraphsSpan.style.display = 'block';
+        } else {
+            if (noGraphsSpan) noGraphsSpan.style.display = 'none';
         }
     }
 
     renderGraphList() {
         const graphList = this.graphStorageManager.getGraphList();
         const listElem = document.querySelector('.menu-graph-list');
-        listElem.innerHTML = '';
-        
+
+        const noGraphsSpan = document.querySelector('.menu-no-graphs');
+
         if (!graphList || graphList.length === 0) {
-            listElem.innerHTML = '<div style="color:#bbb;text-align:center;padding:32px 0;" data-i18n="menu.no_graphs">保存されたグラフはありません</div>';
-            if (this.languageManager) {
-                this.languageManager.updatePageText();
-            }
+            noGraphsSpan.style.display = 'block';
+            // if (this.languageManager) this.languageManager.updatePageText();
             return;
+        } else {
+            noGraphsSpan.style.display = 'none';
         }
 
         graphList.forEach(graph => {
             // aタグでグラフブロック全体をラップ
             const link = document.createElement('a');
             link.href = `https://teth-main.github.io/GraPen/?h=${graph.hash}`;
-            // link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.className = 'graph-block-link';
 

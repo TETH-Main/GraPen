@@ -1,5 +1,6 @@
 {
     "ja": {
+        "close": "閉じる",
         "header.curve_options": "曲線近似の設定",
         "header.export": "エクスポート",
         "header.settings": "設定",
@@ -39,6 +40,11 @@
         "approximator.title": "曲線近似設定",
         "approximator.display.title": "曲線の近似表示のデフォルト設定",
         "approximator.settings.max_knots": "最大節点数(曲線の分割最大数)",
+        "approximator.settings.max_knots.desc": "曲線近似時に分割できる最大の節点（分割点）の数です。",
+        "approximator.settings.error_threshold": "許容誤差",
+        "approximator.settings.error_threshold.desc": "曲線近似の許容誤差です。低い値にすると元の曲線に忠実な近似になりますが、複雑なパスになります。",
+        "approximator.settings.sampling_rate": "サンプリングレート",
+        "approximator.settings.sampling_rate.desc": "描画時の点のサンプリング間隔です。大きい値にすると点の数が減り、処理が軽くなりますが精度は下がります。",
         "approximator.buttons.default": "デフォルト",
         "approximator.buttons.apply": "適用",
         "curve.knot_slider.label": "節点数:",
@@ -61,14 +67,18 @@
         "menu.delete_cancel": "キャンセル",
         "menu.delete_confirm": "削除する",
         "menu.cache_notice": "注意：キャッシュ削除で表示中のグラフデータは消去されます（データ自体は残ります）",
+        "menu.save_notice": "注意：保存直後はデータが一時保存されており、まだ確定していません。",
         "save_graph": "グラフを保存",
         "save_graph.title": "グラフを保存",
         "save_graph.title_label": "タイトル",
         "save_graph.title_placeholder": "グラフのタイトルを入力",
         "save_graph.cancel": "キャンセル",
-        "save_graph.save": "保存"
+        "save_graph.save": "保存",
+        "new_feature.title": "新機能のお知らせ",
+        "new_feature.details_link": "詳細はこちら"
     },
     "en": {
+        "close": "Close",
         "header.curve_options": "Curve Options",
         "header.export": "Export",
         "header.settings": "Settings",
@@ -108,6 +118,11 @@
         "approximator.title": "Curve Approximation Settings",
         "approximator.display.title": "Default Curve Approximation Display Settings",
         "approximator.settings.max_knots": "Max number of knots (max curve segments)",
+        "approximator.settings.max_knots.desc": "The maximum number of knots (segments) allowed when approximating a curve.",
+        "approximator.settings.error_threshold": "Error tolerance",
+        "approximator.settings.error_threshold.desc": "Tolerance for curve approximation. Lower values make the approximation closer to the original curve but more complex.",
+        "approximator.settings.sampling_rate": "Sampling rate",
+        "approximator.settings.sampling_rate.desc": "Point sampling interval when drawing. Higher values reduce the number of points and lighten processing, but decrease accuracy.",
         "approximator.buttons.default": "Default",
         "approximator.buttons.apply": "Apply",
         "curve.knot_slider.label": "Knots:",
@@ -130,11 +145,14 @@
         "menu.delete_cancel": "Cancel",
         "menu.delete_confirm": "Delete",
         "menu.cache_notice": "Note: Clearing cache will remove displayed graph data (actual data will be preserved)",
+        "menu.save_notice": "Note: Immediately after saving, the data is temporarily stored and not yet finalized.",
         "save_graph": "Save Graph",
         "save_graph.title": "Save Graph",
         "save_graph.title_label": "Title",
         "save_graph.title_placeholder": "Enter graph title",
         "save_graph.cancel": "Cancel",
-        "save_graph.save": "Save"
+        "save_graph.save": "Save",
+        "new_feature.title": "New Features",
+        "new_feature.details_link": "See details"
     }
 }
