@@ -21,6 +21,7 @@ export class LanguageManager {
             this.createLanguagePanel();
             this.setupEventListeners();
             this.updatePageText();
+            document.dispatchEvent(new CustomEvent('languageStateChanged', { detail: { lang: this.currentLang } }));
         } catch (error) {
             console.error('Failed to initialize language manager:', error);
         }
@@ -94,6 +95,8 @@ export class LanguageManager {
         
         const tutorialLink = document.querySelector('.tutorial-link');
         tutorialLink.href = this.getTutorialUrl();
+
+        document.dispatchEvent(new CustomEvent('languageStateChanged', { detail: { lang } }));
     }
 
     updateActiveLanguage() {

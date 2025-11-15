@@ -2,6 +2,9 @@
  * 履歴管理クラス
  * 元に戻す/やり直し機能を担当
  */
+import { applyDeltaToFormulaNumeric, signedFixedString } from '../util/NumberUtil.js';
+import { EquationBuilder } from '../util/EquationBuilder.js';
+
 export class HistoryManager {
     constructor() {
         this.undoStack = [];
@@ -20,7 +23,7 @@ export class HistoryManager {
         this.graphCalculator = uiManager.graphCalculator;
         this.uiManager = uiManager;
         this.saveGraphManager = uiManager.saveGraphManager;
-        
+
         // SaveGraphManagerにHistoryManagerへの参照を渡す
         if (this.saveGraphManager) {
             this.saveGraphManager.setHistoryManager(this);
@@ -150,10 +153,16 @@ export class HistoryManager {
                 break;
 
             case 'moveCurve':
-                // 曲線移動アクションの処理
-                if (action.oldPoints && action.newPoints) {
-                    action.oldPoints = this._deepCopy(action.oldPoints);
-                    action.newPoints = this._deepCopy(action.newPoints);
+                // 曲線移動アクションは delta-only を前提に扱う
+                if (action.deltaX !== undefined && action.deltaY !== undefined) {
+                    action.deltaX = Number(action.deltaX);
+                    action.deltaY = Number(action.deltaY);
+                    // 古い重いデータは保持しない
+                    if (action.oldPoints) delete action.oldPoints;
+                    if (action.newPoints) delete action.newPoints;
+                } else {
+                    // delta がないアクションは非推奨。ログを残す。
+                    console.warn('HistoryManager.addAction: moveCurve action without delta is deprecated');
                 }
                 break;
         }
@@ -162,7 +171,7 @@ export class HistoryManager {
         const actionCopy = this._deepCopy(action);
         this.undoStack.push(actionCopy);
         this.redoStack = [];
-        
+
         // 新しい履歴が追加されたらSaveGraphManagerの状態をリセット
         if (this.saveGraphManager) {
             this.saveGraphManager.resetSaveState();
@@ -500,43 +509,86 @@ export class HistoryManager {
                     );
                 }
                 break;
+                
             case 'moveCurve':
-                // 曲線の移動を元に戻す
-                if (action.id !== undefined && this.curveManager.curves[action.id]) {
+                // delta-only undo (no re-approximation)
+                if (action.id === undefined) break;
+                {
                     const curve = this.curveManager.curves[action.id];
-                    // 点列を元に戻す
-                    curve.originalPoints = [...action.oldPoints];
-                    // 近似・再描画
-                    const approximationResult = this.curveManager.getCurveApproximationResult(
-                        curve.type,
-                        action.oldPoints,
-                        {}
-                    );
-                    if (approximationResult && approximationResult.success) {
-                        curve.latexEquations = approximationResult.latexEquations;
-                        this.graphCalculator.updateCurve(curve.graphCurve.id, {
-                            path: approximationResult.svgPath
-                        });
-                        this.graphCalculator.removeAllPoints(curve.graphCurve.id);
-                        if (approximationResult.knots && Array.isArray(approximationResult.knots)) {
-                            curve.knotPoints = [];
-                            approximationResult.knots.forEach(knot => {
-                                const point = this.graphCalculator.addPoint(curve.graphCurve.id, knot[0], knot[1], {
-                                    // color: curve.color,
-                                    // size: 10,
-                                    // shape: 'hollowCircle'
-                                });
-                                if (point) {
-                                    curve.knotPoints.push({
-                                        x: knot[0],
-                                        y: knot[1],
-                                        point: point
-                                    });
-                                }
-                            });
-                        }
-                        this.curveManager.updateEquationsContainer(action.id);
+                    if (!curve) break;
+                    if (action.deltaX === undefined || action.deltaY === undefined) {
+                        console.warn('undo moveCurve: action missing deltaX/deltaY');
+                        break;
                     }
+
+                    const dx = -Number(action.deltaX);
+                    const dy = -Number(action.deltaY);
+
+                    if (Array.isArray(curve.originalPoints)) {
+                        curve.originalPoints = curve.originalPoints.map(p => [p[0] + dx, p[1] + dy]);
+                    }
+
+                    if (Array.isArray(curve.knotPoints)) {
+                        curve.knotPoints = curve.knotPoints.map(k => ({
+                            x: (k.x || 0) + dx,
+                            y: (k.y || 0) + dy,
+                            point: k.point
+                        }));
+                    }
+
+                    if (Array.isArray(curve.latexEquations)) {
+                        curve.latexEquations = curve.latexEquations.map(eq => {
+                            if (!eq) return eq;
+                            const translated = EquationBuilder.translateEquation(eq, dx, dy);
+                            if (translated) {
+                                return translated;
+                            }
+
+                            const newFormula = (eq && eq.formula)
+                                ? applyDeltaToFormulaNumeric(eq.formula, dx, dy)
+                                : (eq && eq.formula) || '';
+                            const newDomain = { ...(eq?.domain || {}) };
+                            const parseNum = (s) => {
+                                if (!s) return NaN;
+                                const cleaned = ('' + s)
+                                    .replace(/<[^>]*>/g, '')
+                                    .replace(/[^0-9eE+\-\.]/g, '');
+                                const n = parseFloat(cleaned);
+                                return Number.isFinite(n) ? n : NaN;
+                            };
+                            const startNum = parseNum(newDomain.start);
+                            const endNum = parseNum(newDomain.end);
+                            const deltaForDomain = (eq.type === 'vertical') ? dy : dx;
+                            if (Number.isFinite(startNum)) newDomain.start = signedFixedString(startNum + deltaForDomain, 3);
+                            if (Number.isFinite(endNum)) newDomain.end = signedFixedString(endNum + deltaForDomain, 3);
+                            return { ...(eq || {}), domain: newDomain, formula: newFormula };
+                        });
+                    }
+
+                    const svgRoot = this.graphCalculator && this.graphCalculator.svg;
+                    if (svgRoot && curve.graphCurve) {
+                        const group = svgRoot.querySelector(`g[data-curve-base-id="${curve.graphCurve.id}"]`);
+                        if (group) {
+                            const prev = group.getAttribute('transform') || '';
+                            group.setAttribute('transform', `${prev} translate(${dx},${dy})`.trim());
+                        }
+                        const emphasisGroup = svgRoot.querySelector(`g[data-curve-base-id="emphasis-${curve.graphCurve.id}"]`);
+                        if (emphasisGroup) {
+                            const prevE = emphasisGroup.getAttribute('transform') || '';
+                            emphasisGroup.setAttribute('transform', `${prevE} translate(${dx},${dy})`.trim());
+                        }
+                    }
+
+                    this.curveManager.updateEquationsContainer(action.id);
+                }
+                break;
+
+            case 'knotCountChanged':
+                // スライダーでの節点数変更アクションを元に戻す
+                if (action.id !== undefined) {
+                    const id = action.id;
+                    const oldV = action.oldValue;
+                    window.GraPen.setKnotCountSliderValue(id, oldV, true);
                 }
                 break;
         }
@@ -556,7 +608,7 @@ export class HistoryManager {
 
         this.curveManager.updateCurveList();
         this.curveManager.redrawCurves();
-        
+
         // SaveGraphManagerの状態を更新
         if (this.saveGraphManager) {
             this.saveGraphManager.updateSaveButtonState();
@@ -839,44 +891,87 @@ export class HistoryManager {
                 }
                 break;
             case 'moveCurve':
-                // 曲線の移動をやり直す
-                if (action.id !== undefined && this.curveManager.curves[action.id]) {
+                // delta-only redo (no re-approximation)
+                if (action.id === undefined) break;
+                {
                     const curve = this.curveManager.curves[action.id];
-                    // 点列を移動後に
-                    curve.originalPoints = [...action.newPoints];
-                    // 近似・再描画
-                    const approximationResult = this.curveManager.getCurveApproximationResult(
-                        curve.type,
-                        action.newPoints,
-                        {}
-                    );
-                    if (approximationResult && approximationResult.success) {
-                        curve.latexEquations = approximationResult.latexEquations;
-                        this.graphCalculator.updateCurve(curve.graphCurve.id, {
-                            path: approximationResult.svgPath
-                        });
-                        this.graphCalculator.removeAllPoints(curve.graphCurve.id);
-                        if (approximationResult.knots && Array.isArray(approximationResult.knots)) {
-                            curve.knotPoints = [];
-                            approximationResult.knots.forEach(knot => {
-                                const point = this.graphCalculator.addPoint(curve.graphCurve.id, knot[0], knot[1], {
-                                    color: curve.color,
-                                    size: 10,
-                                    shape: 'hollowCircle'
-                                });
-                                if (point) {
-                                    curve.knotPoints.push({
-                                        x: knot[0],
-                                        y: knot[1],
-                                        point: point
-                                    });
-                                }
-                            });
-                        }
-                        this.curveManager.updateEquationsContainer(action.id);
+                    if (!curve) break;
+                    if (action.deltaX === undefined || action.deltaY === undefined) {
+                        console.warn('redo moveCurve: action missing deltaX/deltaY');
+                        break;
                     }
+
+                    const dx = Number(action.deltaX);
+                    const dy = Number(action.deltaY);
+
+                    if (Array.isArray(curve.originalPoints)) {
+                        curve.originalPoints = curve.originalPoints.map(p => [p[0] + dx, p[1] + dy]);
+                    }
+
+                    if (Array.isArray(curve.knotPoints)) {
+                        curve.knotPoints = curve.knotPoints.map(k => ({
+                            x: (k.x || 0) + dx,
+                            y: (k.y || 0) + dy,
+                            point: k.point
+                        }));
+                    }
+
+                    if (Array.isArray(curve.latexEquations)) {
+                        curve.latexEquations = curve.latexEquations.map(eq => {
+                            if (!eq) return eq;
+                            const translated = EquationBuilder.translateEquation(eq, dx, dy);
+                            if (translated) {
+                                return translated;
+                            }
+
+                            const newFormula = (eq && eq.formula)
+                                ? applyDeltaToFormulaNumeric(eq.formula, dx, dy)
+                                : (eq && eq.formula) || '';
+                            const newDomain = { ...(eq?.domain || {}) };
+                            const parseNum = (s) => {
+                                if (!s) return NaN;
+                                const cleaned = ('' + s)
+                                    .replace(/<[^>]*>/g, '')
+                                    .replace(/[^0-9eE+\-\.]/g, '');
+                                const n = parseFloat(cleaned);
+                                return Number.isFinite(n) ? n : NaN;
+                            };
+                            const startNum = parseNum(newDomain.start);
+                            const endNum = parseNum(newDomain.end);
+                            const deltaForDomain = (eq.type === 'vertical') ? dy : dx;
+                            if (Number.isFinite(startNum)) newDomain.start = signedFixedString(startNum + deltaForDomain, 3);
+                            if (Number.isFinite(endNum)) newDomain.end = signedFixedString(endNum + deltaForDomain, 3);
+                            return { ...(eq || {}), domain: newDomain, formula: newFormula };
+                        });
+                    }
+
+                    const svgRoot = this.graphCalculator && this.graphCalculator.svg;
+                    if (svgRoot && curve.graphCurve) {
+                        const group = svgRoot.querySelector(`g[data-curve-base-id="${curve.graphCurve.id}"]`);
+                        if (group) {
+                            const prev = group.getAttribute('transform') || '';
+                            group.setAttribute('transform', `${prev} translate(${dx},${dy})`.trim());
+                        }
+                        const emphasisGroup = svgRoot.querySelector(`g[data-curve-base-id="emphasis-${curve.graphCurve.id}"]`);
+                        if (emphasisGroup) {
+                            const prevE = emphasisGroup.getAttribute('transform') || '';
+                            emphasisGroup.setAttribute('transform', `${prevE} translate(${dx},${dy})`.trim());
+                        }
+                    }
+
+                    this.curveManager.updateEquationsContainer(action.id);
                 }
                 break;
+
+            case 'knotCountChanged':
+                // スライダーでの節点数変更アクションを再適用する
+                if (action.id !== undefined) {
+                    const id = action.id;
+                    const newV = action.newValue;
+                    window.GraPen.setKnotCountSliderValue(id, newV, true);
+                }
+                break;
+
         }
 
         // IDを再割り当て
@@ -894,7 +989,7 @@ export class HistoryManager {
 
         this.curveManager.updateCurveList();
         this.curveManager.redrawCurves();
-        
+
         // SaveGraphManagerの状態を更新
         if (this.saveGraphManager) {
             this.saveGraphManager.updateSaveButtonState();

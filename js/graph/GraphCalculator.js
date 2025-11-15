@@ -1889,6 +1889,41 @@ export default class GraphCalculator {
     getDomain() {
         return { ...this.domainState };
     }
+
+    /**
+     * 現在のドメインが「ホーム」にあるかを判定します。
+     * 第2引数に true または { requireXRange: true } を渡すと、x ドメインが [-10,10] であることも確認します。
+     * @param {number} tolerance - 原点との許容誤差（ドメイン座標系）。デフォルトは 1e-0。
+     * @param {Object|boolean} optionsOrRequireXRange - オプションまたはフラグ（省略時は false）。
+     * @returns {boolean|null} true/false、GraphCalculatorが利用できない場合は null を返します。
+     */
+    isAtHome(tolerance = 1e-0, optionsOrRequireXRange = false) {
+        try {
+            const d = this.getDomain();
+            if (!d) return null;
+
+            const cx = (d.xMin + d.xMax) / 2;
+            const cy = (d.yMin + d.yMax) / 2;
+            const tol = (typeof tolerance === 'number' && isFinite(tolerance)) ? Math.abs(tolerance) : 1e-0;
+
+            const centerOk = Math.abs(cx) <= tol && Math.abs(cy) <= tol;
+
+            let requireXRange = false;
+            if (optionsOrRequireXRange === true) requireXRange = true;
+            else if (optionsOrRequireXRange && typeof optionsOrRequireXRange === 'object' && optionsOrRequireXRange.requireXRange) requireXRange = true;
+
+            if (!requireXRange) return centerOk;
+
+            // xMin と xMax がほぼ -10, +10 になっているかをチェックする。許容誤差は tolerance を使用。
+            const xMinOk = Math.abs(d.xMin - (-10)) <= tol;
+            const xMaxOk = Math.abs(d.xMax - 10) <= tol;
+
+            return centerOk && xMinOk && xMaxOk;
+        } catch (e) {
+            this._logError('isAtHome (center check) failed', e);
+            return null;
+        }
+    }
     
     /**
      * オプションの更新
@@ -2675,6 +2710,62 @@ export default class GraphCalculator {
         } catch (error) {
             this._logError('Error setting curve group visibility', error);
             return false;
+        }
+    }
+
+    /**
+     * 現在のドメインから縮尺レベル(10のn乗)を整数値で取得
+     * @returns {number} n (例: ドメイン幅が1000なら3, 0.01なら-2)
+     */
+    getScaleLevel() {
+        const xWidth = Math.abs(this.domainState.xMax - this.domainState.xMin);
+        const yWidth = Math.abs(this.domainState.yMax - this.domainState.yMin);
+        const minWidth = Math.min(xWidth, yWidth);
+        if (minWidth <= 0) return 0;
+        return parseInt(Math.floor(Math.log10(minWidth)), 10);
+    }
+
+    /**
+     * 指定曲線のバウンディングボックスを取得
+     * @param {string|number} id - 曲線ID
+     * @param {('domain'|'screen')} space - 返却座標系（'domain'がデフォルト）
+     * @returns {Object|null} {xMin,xMax,yMin,yMax,width,height,cx,cy}
+     */
+    getCurveBoundingBox(id, space = 'domain') {
+        try {
+            const curve = this.getCurve(id);
+            if (!curve || !curve.path || typeof curve.path.getBBox !== 'function') return null;
+            // パスのBBoxはグループtransformを含まないため、ドメイン座標系相当
+            const b = curve.path.getBBox();
+            const bboxDomain = {
+                xMin: b.x,
+                xMax: b.x + b.width,
+                yMin: b.y,
+                yMax: b.y + b.height,
+                width: b.width,
+                height: b.height,
+                cx: b.x + b.width / 2,
+                cy: b.y + b.height / 2
+            };
+            if (space === 'domain') return bboxDomain;
+
+            // 画面座標系に変換
+            const p1 = this.domainToScreen(bboxDomain.xMin, bboxDomain.yMin);
+            const p2 = this.domainToScreen(bboxDomain.xMax, bboxDomain.yMax);
+            const xMin = Math.min(p1.x, p2.x);
+            const xMax = Math.max(p1.x, p2.x);
+            const yMin = Math.min(p1.y, p2.y);
+            const yMax = Math.max(p1.y, p2.y);
+            return {
+                xMin, xMax, yMin, yMax,
+                width: xMax - xMin,
+                height: yMax - yMin,
+                cx: (xMin + xMax) / 2,
+                cy: (yMin + yMax) / 2
+            };
+        } catch (error) {
+            this._logError('Error getting curve bounding box', error);
+            return null;
         }
     }
 }

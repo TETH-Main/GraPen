@@ -1,4 +1,5 @@
-import { signedFixedString } from "../../util/NumberUtil.js";
+import { roundQuadraticCoeffs } from "../../util/NumberUtil.js";
+import { EquationBuilder } from "../../util/EquationBuilder.js";
 
 /**
  * 2次B-スプライン曲線近似クラス
@@ -67,262 +68,148 @@ export class BSplineApproximator {
     }
 
     /**
-     * ノット列の初期化
-     * @param {number} k - ノット数
-     */
-    adjustKnotCount(k) {
-        // 有効範囲内に制限
-        this.knots_num = Math.max(this.options.minKnots, Math.min(this.options.maxKnots, k));
-
-        // ノット列の再初期化
-        this.preKnots = [];
-        this._initPreKnots();
-        this.setinitKnots();
-        this.setNewKnots(this.knots_num);
-        this.knots_m = this.knots.length;
-
-        // グラフ範囲の再設定
-        this._setGraphRange();
-
-        // 近似計算の再実行
-        this.setAb();
-        this.solveAb();
-        this.getCoefficient();
-        this.getSecondDeri();
-
-        return this;
-    }
-
-    /**
      * preKnotsの初期化
      * 始点より小さいxのノット2点、終点より大きいxのノット2点を追加
      */
     _initPreKnots() {
         // 曲率変曲点を優先して節点配置
         const n = this.knots_num;
-        // const inflections = this._computeInflectionPoints(this.points);
-        // const knots = this._distributeKnotsByInflection(inflections, n);
+        let selectedKnots = null;
+
         const knots = this._findDivisionPoints(this.points, n);
+        const snapKnots = this.getSnappedKnots(knots);
+
+        if (this.options.snap) {
+            selectedKnots = snapKnots;
+        } else {
+            selectedKnots = knots
+        }
 
         this.preKnots = [];
         // 通常ノット
-        for (let i = 0; i < knots.length; i++) {
+        for (let i = 0; i < snapKnots.length; i++) {
             this.preKnots.push({
-                knot: knots[i],
+                knot: selectedKnots[i],
                 priority: -1,
                 diff: -9999
             });
         }
         // 始点より小さいノット2点
         this.preKnots.unshift(
-            { knot: -0.1, priority: -1, diff: -9999 },
-            { knot: -0.05, priority: -1, diff: -9999 }
+            { knot: -0.2, priority: -1, diff: -9999 },
+            { knot: -0.1, priority: -1, diff: -9999 }
         );
         // 終点より大きいノット2点
         this.preKnots.push(
-            { knot: 1.05, priority: -1, diff: -9999 },
-            { knot: 1.1, priority: -1, diff: -9999 }
+            { knot: 1.1, priority: -1, diff: -9999 },
+            { knot: 1.2, priority: -1, diff: -9999 }
         );
-    }
-
-    /**
-     * 曲率の変曲点（符号反転点）を求める
-     * @param {Array} points - 正規化済み点列
-     * @returns {Array} - 各変曲点のパラメータ値（0～1）
-     */
-    _computeInflectionPoints(points) {
-        const n = points.length;
-        if (n < 3) return [];
-        const curvature = [];
-        // 曲率計算
-        for (let i = 1; i < n - 1; i++) {
-            const [x0, y0] = points[i - 1];
-            const [x1, y1] = points[i];
-            const [x2, y2] = points[i + 1];
-            const dx1 = x1 - x0, dy1 = y1 - y0;
-            const dx2 = x2 - x1, dy2 = y2 - y1;
-            const cross = dx1 * dy2 - dy1 * dx2;
-            const norm1 = Math.hypot(dx1, dy1);
-            const norm2 = Math.hypot(dx2, dy2);
-            const denom = Math.pow(norm1 * norm2, 1.5) || 1e-8;
-            curvature[i] = cross / denom;
-        }
-        // 変曲点（符号反転点）検出
-        const inflections = [];
-        for (let i = 2; i < n - 2; i++) {
-            if (curvature[i - 1] * curvature[i] < 0) {
-                // 線形補間でより正確な位置を推定
-                const t = (i - 1 + Math.abs(curvature[i - 1]) / (Math.abs(curvature[i - 1]) + Math.abs(curvature[i]))) / (n - 1);
-                if (t > 0 && t < 1) inflections.push(t);
-            }
-        }
-        return inflections;
-    }
-
-    /**
-     * 変曲点を優先しつつ、均等性も考慮してノットを配置
-     * @param {Array} inflections - 変曲点のパラメータ値
-     * @param {number} n - 節点数
-     * @returns {Array} - ノット列（0～1）
-     */
-    _distributeKnotsByInflection(inflections, n) {
-        // 始点・終点は必ず含める
-        const knots = [0, 1];
-        // 変曲点を一旦すべて追加
-        for (const t of inflections) {
-            if (t > 0 && t < 1) knots.push(t);
-        }
-        // 必要数に満たない場合は均等配置で補う
-        while (knots.length < n) {
-            // 既存ノット間の最大間隔を探し、その中点に追加
-            let maxGap = 0, insertIdx = 1, insertT = 0;
-            knots.sort((a, b) => a - b);
-            for (let i = 1; i < knots.length; i++) {
-                const gap = knots[i] - knots[i - 1];
-                if (gap > maxGap) {
-                    maxGap = gap;
-                    insertIdx = i;
-                    insertT = (knots[i] + knots[i - 1]) / 2;
-                }
-            }
-            knots.splice(insertIdx, 0, insertT);
-        }
-        // 多すぎる場合は間隔が狭いものを間引く
-        while (knots.length > n) {
-            knots.sort((a, b) => a - b);
-            let minGap = Infinity, removeIdx = -1;
-            for (let i = 1; i < knots.length - 1; i++) { // 始点・終点は除外
-                const gap = knots[i + 1] - knots[i - 1];
-                if (gap < minGap) {
-                    minGap = gap;
-                    removeIdx = i;
-                }
-            }
-            if (removeIdx > 0 && removeIdx < knots.length - 1) {
-                knots.splice(removeIdx, 1);
-            } else {
-                break;
-            }
-        }
-        knots.sort((a, b) => a - b);
-        return knots;
     }
 
     /**
      * 分割点を見つける関数（0-1の範囲で返す）
+     * 曲率が低い箇所を優先して分割点(knots)を選ぶ
+     * @param {Array} points - [[x, y], ...]
+     * @param {number} knotsNum - 分割点数
+     * @returns {Array} - 0-1正規化済み分割点配列
      */
     _findDivisionPoints(points, knotsNum = 10) {
-        if (points.length <= 2) {
-            return [0, 1]; // 開始と終了を表す0と1を返す
+        if (!points || points.length < 3) return [0, 1];
+
+        // 1. 平滑化
+        const smoothness = 3; // 固定値。必要ならoptions等で調整可
+        const windowSize = Math.min(smoothness * 2 + 1, points.length);
+        const smoothed = [];
+        for (let i = 0; i < points.length; i++) {
+            let sumX = 0, sumY = 0, count = 0;
+            const halfWindow = Math.floor(windowSize / 2);
+            for (let j = Math.max(0, i - halfWindow); j <= Math.min(points.length - 1, i + halfWindow); j++) {
+                sumX += points[j][0];
+                sumY += points[j][1];
+                count++;
+            }
+            smoothed.push([sumX / count, sumY / count]);
         }
 
-        const rawDivisionPoints = [0]; // 始点は必ず含める
-        const minSegmentLength = points.length * 0.1; // 最小セグメント長を相対値に
-        const curvatureThreshold = 0.3;
-
-        // 曲率を計算
-        const curvatures = this._calculateCurvatures(points);
-        let lastDivisionIdx = 0;
-
-        for (let i = 2; i < points.length - 2; i++) {
-            if (i - lastDivisionIdx < minSegmentLength) {
+        // 2. 曲率計算
+        const curvatures = [];
+        for (let i = 1; i < smoothed.length - 1; i++) {
+            const p1 = smoothed[i - 1], p2 = smoothed[i], p3 = smoothed[i + 1];
+            const dx1 = p2[0] - p1[0], dy1 = p2[1] - p1[1];
+            const dx2 = p3[0] - p2[0], dy2 = p3[1] - p2[1];
+            const cross = dx1 * dy2 - dy1 * dx2;
+            const dot = dx1 * dx2 + dy1 * dy2;
+            const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+            const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+            if (len1 === 0 || len2 === 0) {
+                curvatures.push(0);
                 continue;
             }
+            const angle = Math.atan2(cross, dot);
+            const avgLen = (len1 + len2) / 2;
+            curvatures.push(Math.abs(angle) / avgLen);
+        }
 
-            const isInflectionPoint =
-                (curvatures[i - 1] * curvatures[i + 1] < 0) ||
-                (Math.abs(curvatures[i]) < 0.001 && curvatures[i - 1] * curvatures[i + 1] <= 0);
+        // 3. 曲率の平滑化
+        const window = 3;
+        const smoothedCurvatures = [];
+        for (let i = 0; i < curvatures.length; i++) {
+            let sum = 0, count = 0;
+            const half = Math.floor(window / 2);
+            for (let j = Math.max(0, i - half); j <= Math.min(curvatures.length - 1, i + half); j++) {
+                sum += curvatures[j];
+                count++;
+            }
+            smoothedCurvatures.push(sum / count);
+        }
 
-            const curvatureChange = Math.abs(curvatures[i + 1] - curvatures[i - 1]);
-            const isSignificantChange = curvatureChange > curvatureThreshold;
-
-            if (isInflectionPoint || isSignificantChange) {
-                rawDivisionPoints.push(i);
-                lastDivisionIdx = i;
+        // 4. 局所最小値（低曲率点）を検出
+        const candidates = [];
+        for (let i = 2; i < smoothedCurvatures.length - 2; i++) {
+            const curr = smoothedCurvatures[i];
+            const prev1 = smoothedCurvatures[i - 1], prev2 = smoothedCurvatures[i - 2];
+            const next1 = smoothedCurvatures[i + 1], next2 = smoothedCurvatures[i + 2];
+            if (
+                curr <= prev1 && curr <= prev2 &&
+                curr <= next1 && curr <= next2
+            ) {
+                candidates.push({ index: i + 1, curvature: curr }); // +1: smoothedCurvaturesは1つ短い
             }
         }
 
-        // 終点を追加
-        if (rawDivisionPoints[rawDivisionPoints.length - 1] !== points.length - 1) {
-            rawDivisionPoints.push(points.length - 1);
+        // 5. 始点・終点は必ず含める
+        const divisionIndices = [0, points.length - 1];
+
+        // 6. knotsNumに合わせて分割点を選択
+        //   - まず低曲率点から距離を空けて選択
+        //   - 足りなければ等間隔で補う
+        const minDistance = Math.floor(points.length / (knotsNum * 1.5)); // 距離閾値
+        const selected = [];
+        for (const cand of candidates.sort((a, b) => a.curvature - b.curvature)) {
+            if (selected.length >= knotsNum - 2) break;
+            if (selected.every(idx => Math.abs(idx - cand.index) >= minDistance)) {
+                selected.push(cand.index);
+            }
         }
-
-        // 長いセグメントの分割（相対長で判断）
-        const maxSegmentLength = points.length * 0.2;
-        const finalDivisionPoints = [0];
-
-        for (let i = 1; i < rawDivisionPoints.length; i++) {
-            const start = rawDivisionPoints[i - 1];
-            const end = rawDivisionPoints[i];
-            const segmentLength = end - start;
-
-            if (segmentLength > maxSegmentLength) {
-                const divisions = Math.ceil(segmentLength / maxSegmentLength);
-                const step = segmentLength / divisions;
-
-                for (let j = 1; j < divisions; j++) {
-                    const idx = Math.floor(start + j * step);
-                    finalDivisionPoints.push(idx);
+        // 足りない場合は等間隔で補う
+        while (selected.length < knotsNum - 2) {
+            const step = (points.length - 1) / (knotsNum - 1);
+            for (let i = 1; i < knotsNum - 1 && selected.length < knotsNum - 2; i++) {
+                const idx = Math.round(i * step);
+                if (
+                    idx !== 0 && idx !== points.length - 1 &&
+                    !selected.includes(idx)
+                ) {
+                    selected.push(idx);
                 }
             }
-
-            finalDivisionPoints.push(end);
         }
 
-        const currentKnots = [...finalDivisionPoints];
-        // 分割点の数を調整（0-1の正規化前）
-        while (currentKnots.length < knotsNum) {
-            if (currentKnots.length === 0) {
-                return []; // 空の配列の場合はそのまま返す
-            }
+        // 7. インデックスでまとめて昇順
+        const allIndices = [...divisionIndices, ...selected].sort((a, b) => a - b);
 
-            // 最も広いセグメントを見つける
-            let maxDiff = -1;
-            let maxIndex = -1;
-            for (let i = 0; i < currentKnots.length - 1; i++) {
-                const diff = currentKnots[i + 1] - currentKnots[i];
-                if (diff > maxDiff) {
-                    maxDiff = diff;
-                    maxIndex = i;
-                }
-            }
-
-            // 中点を計算して挿入
-            if (maxIndex !== -1) {
-                const midPoint = (currentKnots[maxIndex] + currentKnots[maxIndex + 1]) / 2;
-                currentKnots.splice(maxIndex + 1, 0, midPoint);
-            } else {
-                break; // これ以上分割できるセグメントがない場合（要素が1つしかない場合など）
-            }
-        }
-
-        while (currentKnots.length > knotsNum) {
-            if (currentKnots.length <= 1) {
-                return currentKnots; // 要素が1つ以下になったらそのまま返す
-            }
-
-            // 最も狭いセグメントを見つける
-            let minDiff = Infinity;
-            let minIndex = -1;
-            for (let i = 0; i < currentKnots.length - 1; i++) {
-                const diff = currentKnots[i + 1] - currentKnots[i];
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    minIndex = i;
-                }
-            }
-
-            // 細かい部分を削除（minIndexまたはminIndex + 1を削除する戦略が必要）
-            // ここではminIndex + 1を削除してみます（後の要素を残す）
-            if (minIndex !== -1) {
-                currentKnots.splice(minIndex + 1, 1);
-            } else {
-                break; // これ以上削除できるセグメントがない場合（要素が1つしかない場合など）
-            }
-        }
-
-        // インデックスを0-1の範囲に正規化
-        return currentKnots.map(idx => idx / (points.length - 1));
+        // 8. 0-1正規化
+        return allIndices.map(idx => idx / (points.length - 1));
     }
 
     /**
@@ -597,6 +484,55 @@ export class BSplineApproximator {
         }
         // knotでソート(もどす)
         this.preKnots.sort((a, b) => a.knot - b.knot);
+
+        // --- 外れ値priority処理 ---
+        const diffs = this.preKnots.map(e => e.diff);
+        const validDiffs = diffs.filter(d => d !== -9999);
+        if (validDiffs.length > 0) {
+            const mean = validDiffs.reduce((a, b) => a + b, 0) / validDiffs.length;
+            const std = Math.sqrt(validDiffs.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / validDiffs.length);
+
+            // 外れ値（平均±1.5σ超）のインデックスを抽出（diffが-9999のものは除外）
+            const outlierIndices = [];
+            for (let i = 0; i < this.preKnots.length; i++) {
+                const d = this.preKnots[i].diff;
+                if (d === -9999) continue;
+                if (Math.abs(d - mean) > 1.5 * std) {
+                    outlierIndices.push(i);
+                }
+            }
+
+            // diffが-9999以外のノットを抽出
+            const normalKnots = [];
+            const outlierKnots = [];
+            const dummyKnots = [];
+            for (let i = 0; i < this.preKnots.length; i++) {
+                const knot = this.preKnots[i];
+                if (knot.diff === -9999) {
+                    dummyKnots.push(knot);
+                } else if (outlierIndices.includes(i)) {
+                    outlierKnots.push(knot);
+                } else {
+                    normalKnots.push(knot);
+                }
+            }
+
+            // diff降順（大きい順）でpriorityを割り当て
+            normalKnots.sort((a, b) => b.diff - a.diff);
+            outlierKnots.sort((a, b) => b.diff - a.diff);
+
+            let p = 0;
+            normalKnots.forEach(knot => {
+                knot.priority = p++;
+            });
+            outlierKnots.forEach(knot => {
+                knot.priority = p++;
+            });
+
+            // preKnotsをknot順にソートし直す
+            this.preKnots = [...dummyKnots, ...normalKnots, ...outlierKnots].sort((a, b) => a.knot - b.knot);
+        }
+        // --- ここまで ---
     }
 
     /**
@@ -634,8 +570,9 @@ export class BSplineApproximator {
      */
     _signDigits(val, d) {
         if (!isFinite(val)) return 0;
+        if (d == null || d === undefined) return val;
         const pow = Math.pow(10, d);
-        return Math.round(val * pow) / pow;
+        return Math.round(val / pow) * pow;
     }
 
     /**
@@ -649,24 +586,85 @@ export class BSplineApproximator {
             const t0 = this.knots[i + 2], t1 = this.knots[i + 3];
             const x0 = this.minX + t0 * (this.maxX - this.minX);
             const x1 = this.minX + t1 * (this.maxX - this.minX);
-            const [c, b, a] = this.PoY[i];
+
+            let scaleLevel = this.getScaleLevel();
+
+            let [c0, b0, a0] = this.PoY[i];
+            const [a, b, c] = roundQuadraticCoeffs(a0, b0, c0, 2);
+
             const dx = this.maxX - this.minX;
             const dy = this.maxY - this.minY;
 
-            const a2 = a / (dx * dx) * dy;
-            const b1 = b / dx * dy;
-            const b2 = -2 * this.minX * a2 + b1;
-            const c2 = this.minX * this.minX * a2 - b1 * this.minX + c * dy + this.minY;
+            let a2 = a / (dx * dx) * dy;
+            let b1 = b / dx * dy;
+            let b2 = -2 * this.minX * a2 + b1;
+            let c2 = this.minX * this.minX * a2 - b1 * this.minX + c * dy + this.minY;
 
             // ベジェ制御点
             // https://www.desmos.com/calculator/emngtymdcm
             // (y - minY) / (maxY - minY) = a2 * x^2 + b2 * x + c2 with x = (x - minX) / (maxX - minX) の変形
             const xm = (x0 + x1) / 2;
-            const y0 = a2 * x0 * x0 + b2 * x0 + c2;
-            const y1 = a2 * x1 * x1 + b2 * x1 + c2;
+            let y0 = a2 * x0 * x0 + b2 * x0 + c2;
+            let y1 = a2 * x1 * x1 + b2 * x1 + c2;
 
             // f(x) = ax^2 + bx + c (x0 < x < x1) の制御点
-            const P1y = a2 * x0 * x1 + b2 * xm + c2;
+            let P1y = a2 * x0 * x1 + b2 * xm + c2;
+
+            // Snapが有効時 制御点と係数を変更
+            if (this.options.snap) {
+                let [aRounded, pRounded, qRounded] = this.getRoundedVertexFromCoeff(a2, b2, c2, scaleLevel);
+                // 丸めた二次関数の頂点のx, y座標から制御点のy座標を調整 y = a(x - p)^2 + q
+                const P1yAdjustedbyP = y0 + (x0 - pRounded) * (y1 - y0) / (x0 - 2 * pRounded + x1);
+
+                // https://www.desmos.com/calculator/gwpfcrmoxf
+                let quadraticYBool = (e) => {
+                    return (e - y0) * (e - y1) * (e - (y0 + y1) / 2) > 0 ? true : false;
+                }
+                const P1yAdjustedbyQp = qRounded + Math.sqrt((y0 - qRounded) * (y1 - qRounded)); // if s > 0 
+                const P1yAdjustedbyQm = qRounded - Math.sqrt((y0 - qRounded) * (y1 - qRounded)); // if s < 0
+                const P1yAdjustedbyQ = quadraticYBool(P1yAdjustedbyQp) ? P1yAdjustedbyQp : P1yAdjustedbyQm;
+
+                let pShifted, qShifted = 0;
+                // 丸めた後の頂点と、丸めた後の制御点を比較して、どちらを使うか決定
+                let usePAdjusted = false;
+                let useQAdjusted = false;
+
+                const isPAdjustedNaN = isNaN(P1yAdjustedbyP);
+                const isQAdjustedNaN = isNaN(P1yAdjustedbyQ);
+                if (!isPAdjustedNaN && !isQAdjustedNaN) {
+                    if (Math.abs(P1yAdjustedbyP - P1y) < Math.abs(P1yAdjustedbyQ - P1y)) usePAdjusted = true;
+                    else useQAdjusted = true;
+                }
+                else if (!isPAdjustedNaN) usePAdjusted = true;
+                else if (!isQAdjustedNaN) useQAdjusted = true;
+                else console.error('Both P1yAdjustedbyP and P1yAdjustedbyQ are NaN. Cannot determine P1y.');
+
+                if (usePAdjusted) {
+                    P1y = P1yAdjustedbyP;
+                    pShifted = pRounded;
+                    qShifted = this._signDigits(y0 - (y0 - P1y) * (y0 - P1y) / (y0 - 2 * P1y + y1), scaleLevel - 2);
+                    // console.log('Rounded Vertex by X:', aRounded, pShifted, qShifted);
+                } else if (useQAdjusted) {
+                    P1y = P1yAdjustedbyQ;
+                    pShifted = this._signDigits(x0 - (x0 - x1) * (x0 - P1y) / (y0 - 2 * P1y + y1), scaleLevel - 2);
+                    qShifted = qRounded;
+                    // console.log('Rounded Vertex by Y:', aRounded, pShifted, qShifted);
+                }
+
+                // Snapした後の二次関数の頂点があまりにも元の頂点と離れている場合は、元の頂点を使う
+                if (Math.abs(pShifted - pRounded) > Math.pow(10, scaleLevel) || Math.abs(qShifted - qRounded) > Math.pow(10, scaleLevel)) {
+                    [a2, b2, c2] = this.getRoundedVertexFromCoeff(a2, b2, c2, scaleLevel - 1);
+                } else {
+                    [a2, b2, c2] = this.getCoeffFromVertex(aRounded, pShifted, qShifted);
+                }
+
+                // a, p, qから制御点の座標を更新
+                y0 = a2 * x0 * x0 + b2 * x0 + c2; // 始点のy座標を再計算
+                y1 = a2 * x1 * x1 + b2 * x1 + c2; // 終点のy座標を再計算
+                P1y = a2 * x0 * x1 + b2 * xm + c2; // 制御点のy座標を再計算
+                
+                console.log('Rounded Coefficients:', `${a2}x^2 + ${b2}x + ${c2}`);
+            }
 
             const P1x = xm;
             segments.push({
@@ -687,34 +685,91 @@ export class BSplineApproximator {
 
         // 表示するノット列（元座標系）
         const knots = [];
-        if (segments.length > 0) {
-            // 最初の要素から最後の要素の直前までの start を取得
-            const startKnots = segments.map(({ start }) => start);
-            knots.push(...startKnots);
-            // 最後の要素の end を追加
-            knots.push(segments[segments.length - 1].end);
-        }
+        segments.forEach(seg => {
+            knots.push(seg.start);
+            knots.push(seg.end);
+        });
+        // if (segments.length > 0) {
+        //     // 最初の要素から最後の要素の直前までの start を取得
+        //     const startKnots = segments.map(({ start }) => start);
+        //     knots.push(...startKnots);
+        //     // 最後の要素の end を追加
+        //     knots.push(segments[segments.length - 1].end);
+        // }
 
         // latex
         const latexEquations = segments.map(seg => {
-            const { a, b, c } = seg.coef;
+            const coefficients = seg?.coef ?? {};
+            const { a: coefA, b: coefB, c: coefC } = coefficients;
+            const isQuadratic = Number.isFinite(coefA) && Math.abs(coefA) > 1e-12;
+            const domainRange = [
+                Math.min(seg.start[0], seg.end[0]),
+                Math.max(seg.start[0], seg.end[0])
+            ];
 
-            // y = ax^2 + bx + c の形に変換
-            // let eq = `y=${fmt(a)}x^2${fmt(b)}x${fmt(c)}`;
+            if (!isQuadratic) {
+                const dx = seg.end[0] - seg.start[0];
+                const dy = seg.end[1] - seg.start[1];
 
-            // y = a(x - p)^2 + q の形に変換
-            const p = b / (2 * a);
-            const q = c - (a * p * p);
-            let eq = `y=${signedFixedString(a, 3)}(x${signedFixedString(p, 3)})^2${signedFixedString(q, 3)}`;
-            eq = eq.replace('=+', '=');
-            return {
-                type: 'quadratic',
-                formula: eq,
-                domain: {
-                    start: seg.start[0].toFixed(2),
-                    end: seg.end[0].toFixed(2)
+                if (Math.abs(dx) <= 1e-12) {
+                    const yRange = [
+                        Math.min(seg.start[1], seg.end[1]),
+                        Math.max(seg.start[1], seg.end[1])
+                    ];
+                    const vertical = EquationBuilder.vertical({
+                        x: seg.start[0],
+                        yRange,
+                        meta: { coefficients }
+                    }, { decimals: 3 });
+                    vertical.domain = {
+                        start: yRange[0].toFixed(2),
+                        end: yRange[1].toFixed(2)
+                    };
+                    vertical.params = {
+                        ...vertical.params,
+                        coefficients
+                    };
+                    return vertical;
                 }
+
+                const slope = dy / dx;
+                const linear = EquationBuilder.linear({
+                    slope,
+                    point: seg.start,
+                    domain: domainRange,
+                    meta: { coefficients }
+                }, { decimals: 3 });
+                linear.domain = {
+                    start: domainRange[0].toFixed(2),
+                    end: domainRange[1].toFixed(2)
+                };
+                linear.params = {
+                    ...linear.params,
+                    coefficients
+                };
+                return linear;
+            }
+
+            const vertexX = -coefB / (2 * coefA);
+            const vertexY = coefA * vertexX * vertexX + coefB * vertexX + coefC;
+            const equation = EquationBuilder.quadraticVertex({
+                a: coefA,
+                vertex: [vertexX, vertexY],
+                domain: domainRange,
+                meta: { coefficients }
+            }, { decimals: 3 });
+
+            equation.domain = {
+                start: domainRange[0].toFixed(2),
+                end: domainRange[1].toFixed(2)
             };
+
+            equation.params = {
+                ...equation.params,
+                coefficients
+            };
+
+            return equation;
         });
         // ベジェ
         const bezierSegments = segments.map(seg => ({
@@ -765,48 +820,19 @@ export class BSplineApproximator {
         return this;
     }
 
-
     /**
-     * カスタムノット列を設定して近似を実行
-     * @param {Array} customKnots - カスタムノット列（0-1の範囲で正規化済みの値）
-     * @returns {this}
+     * 節点数を設定し近似を実行後、節点の優先度のみ返す
+     * @param {number} knotsNum - 節点数
+     * @returns {Array} - 節点の優先度
      */
-    setCustomKnots(customKnots) {
-        if (!Array.isArray(customKnots) || customKnots.length < this.options.minKnots) {
-            throw new Error('Invalid custom knots array');
+    GetPriority(knotsNum) {
+        if (!Number.isInteger(knotsNum) || knotsNum < this.options.minKnots) {
+            throw new Error('Invalid knots number');
         }
 
-        // 正規化されているか確認
-        if (customKnots.some(k => k < 0 || k > 1)) {
-            throw new Error('Knots must be normalized (between 0 and 1)');
-        }
-
-        // ソートして昇順に
-        customKnots.sort((a, b) => a - b);
-
-        // preKnotsを初期化
-        this.preKnots = [];
-
-        // 始点より小さいノット2点
-        this.preKnots.push(
-            { knot: -0.1, priority: -1, diff: -9999 },
-            { knot: -0.05, priority: -1, diff: -9999 }
-        );
-
-        // カスタムノットを追加
-        for (const knot of customKnots) {
-            this.preKnots.push({
-                knot: knot,
-                priority: -1,
-                diff: -9999
-            });
-        }
-
-        // 終点より大きいノット2点
-        this.preKnots.push(
-            { knot: 1.05, priority: -1, diff: -9999 },
-            { knot: 1.1, priority: -1, diff: -9999 }
-        );
+        const customKnots = this.preKnots
+            .filter(k => k.priority < knotsNum - 2) // 優先度でフィルタリング
+        this.preKnots = customKnots
 
         // ノット列を設定
         this.knots = this.preKnots.map(e => e.knot);
@@ -822,6 +848,192 @@ export class BSplineApproximator {
         this.getCoefficient();
         this.getSecondDeri();
 
+        return this.preKnots
+    }
+
+
+    /**
+     * カスタムノット列を設定して近似を実行
+     * @param {Array} customKnots - カスタムノット列（0-1の範囲で正規化済みの値）
+     * @returns {this}
+     */
+    setCustomKnots(customKnots) {
+        if (!Array.isArray(customKnots) || customKnots.length < this.options.minKnots) {
+            throw new Error('Invalid custom knots array');
+        }
+
+        // 入力を正規化（数値配列/オブジェクト配列の両方に対応）
+        const normalizedKnots = customKnots.map((entry, index) => {
+            if (typeof entry === 'number') {
+                return { knot: entry, priority: index, diff: -9999 };
+            }
+            if (entry && typeof entry.knot === 'number') {
+                return {
+                    knot: entry.knot,
+                    priority: typeof entry.priority === 'number' ? entry.priority : index,
+                    diff: typeof entry.diff === 'number' ? entry.diff : -9999
+                };
+            }
+            throw new Error('Invalid knot entry');
+        });
+
+        if (normalizedKnots.some(k => !Number.isFinite(k.knot))) {
+            throw new Error('Knots must be finite numbers');
+        }
+
+        normalizedKnots.sort((a, b) => a.knot - b.knot);
+
+        // preKnotsを初期化
+        this.preKnots = normalizedKnots;
+
+        // ノット列を設定
+        this.knots = this.preKnots.map(e => e.knot);
+        this.knots_m = this.knots.length;
+        this.knots_num = normalizedKnots.length;
+
+        // グラフ範囲の再設定
+        this._setGraphRange();
+
+        // 近似計算の再実行
+        this.setAb();
+        this.solveAb();
+        this.getCoefficient();
+        // this.getSecondDeri(); // priorityを再計算すると元情報を失うため呼ばない
+
         return this;
+    }
+
+    /**
+     * Snappingしたknotsを使って近似を行う
+     * @param {Array} knots - Snap前の節点
+     * @return {this}
+     */
+    setSnappedKnots(knots) {
+        const snappedKnots = this.getSnappedKnots(knots);
+        this.setCustomKnots(snappedKnots);
+    }
+
+    /**
+     * グラフのスケールレベルを取得する
+     * @returns {number} - スケールレベル
+     */
+    getScaleLevel() {
+        // 始点と終点のx座標の差からscaleLevelを決定
+        const x0 = this.originalPoints[0][0];
+        const x1 = this.originalPoints[this.originalPoints.length - 1][0];
+        const diff = Math.abs(x1 - x0);
+        let scaleLevel = 0;
+        if (diff > 0) {
+            scaleLevel = Math.floor(Math.log10(diff)) - 1;
+        }
+        return scaleLevel;
+    }
+
+    /**
+     * Snappingしたknots（分割点）を取得する
+     * @returns {Array} - 0-1正規化済み分割点配列
+     * 
+     */
+    getSnappedKnots(knots) {
+        let scaleLevel = this.getScaleLevel();
+
+        let snappedXs, uniqueSnappedXs;
+        let currentScaleLevel = scaleLevel;
+        while (true) {
+            const grid = Math.pow(10, currentScaleLevel);
+            snappedXs = knots.map(t => {
+                const x = this.minX + t * (this.maxX - this.minX);
+                return Math.round(x / grid) * grid;
+            });
+            uniqueSnappedXs = Array.from(new Set(snappedXs));
+            if (uniqueSnappedXs.length === snappedXs.length) {
+                break;
+            }
+            currentScaleLevel--;
+        }
+        uniqueSnappedXs.sort((a, b) => a - b);
+
+        // 各スナップxに最も近い点を元点列から探し、そのx座標で正規化
+        const minX = this.originalPoints[0][0];
+        const maxX = this.originalPoints[this.originalPoints.length - 1][0];
+        const range = maxX - minX || 1;
+        const normXs = Array.from(new Set(uniqueSnappedXs)).map(snapX =>
+            (snapX - minX) / range
+        );
+
+        return normXs;
+    }
+
+    /**
+     * 係数a, b, cから平方完成し、丸めた後のa, b, cを返す
+     * @param {number} a - 二次項の係数
+     * @param {number} b - 一次項の係数
+     * @param {number} c - 定数項の係数
+     * @param {number} digits - 小数点以下の桁数
+     * @returns {Array} - 平方完成した係数 [a, b, c]
+     */
+    getRoundedSquare(a, b, c, digits = 3) {
+        // 平方完成
+        const aRounded = this._signDigits(a, digits);
+        const p = b / (2 * aRounded);
+        const q = c - aRounded * p * p;
+
+        // 小数点以下の桁数で丸める
+        const roundP = this._signDigits(p, digits);
+        const roundQ = this._signDigits(q, digits);
+
+        // 平方完成を一般式にもどす
+        const bRounded = 2 * a * roundP;
+        const cRounded = roundQ + a * roundP * roundP;
+
+        return [a, bRounded, cRounded];
+    }
+
+    /**
+     * 係数a, b, cを平方完成した係数を返す
+     * @param {number} a - 二次項の係数
+     * @param {number} b - 一次項の係数
+     * @param {number} c - 定数項の係数
+     * @returns {Array} - 頂点形式の係数 [a, p, q]
+     */
+    getVertexFromCoeff(a, b, c) {
+        // 平方完成
+        const p = - b / (2 * a);
+        const q = c - a * p * p;
+
+        // 頂点形式の係数を返す
+        return [a, p, q];
+    }
+
+    /**
+     * 係数a, p, qから一般形に戻した係数を返す
+     * @param {number} a - 二次項の係数
+     * @param {number} p - 頂点形式のp
+     * @param {number} q - 頂点形式のq
+     * @returns {Array} - 一般形の係数 [a, b, c]
+     */
+    getCoeffFromVertex(a, p, q) {
+        const b = -2 * a * p;
+        const c = a * p * p + q;
+        return [a, b, c];
+    }
+
+    /**
+     * 係数a, b, cから頂点形式に変換し、丸めた後の係数を返す
+     * @param {number} a - 二次項の係数
+     * @param {number} b - 一次項の係数
+     * @param {number} c - 定数項の係数
+     * @param {number} digits - 小数点以下の桁数
+     * @returns {Array} - 頂点形式の係数 [a, p, q]
+     */
+    getRoundedVertexFromCoeff(a, b, c, scaleLevel = null) {
+        // 平方完成
+        // const aRounded = this._signDigits(a, scaleLevel);
+        const aRounded = a;
+        const p = this._signDigits(- b / (2 * aRounded), scaleLevel);
+        const q = this._signDigits(c - (aRounded * p * p), scaleLevel);
+
+        // 頂点形式の係数を返す
+        return [a, p, q];
     }
 }

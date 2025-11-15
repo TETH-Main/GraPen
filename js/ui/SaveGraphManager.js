@@ -7,7 +7,7 @@ export class SaveGraphManager {
         this.languageManager = languageManager;
         this.historyManager = null;
         this.isOpen = false;
-        this.justSaved = false; // Flag to track if save was just performed
+        this.justSaved = false;
         this.saveButtonId = 'save-graph-btn';
         this.init();
     }
@@ -59,7 +59,7 @@ export class SaveGraphManager {
                 <div class="modal-header">
                     <h3>
                         <i class="material-symbols-rounded">save</i>
-                        <span data-i18n="save_graph.title">グラフを保存</span>
+                        <span data-i18n="save_graph.title">保存</span>
                     </h3>
                     <button class="close-modal-btn">&times;</button>
                 </div>

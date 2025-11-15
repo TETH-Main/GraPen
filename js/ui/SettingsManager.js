@@ -137,22 +137,20 @@ export class SettingsManager {
                     <span data-i18n="settings_panel.tick_labels">目盛りラベル</span>
                     </label>
                 </div>
+                <div class="settings-item">
+                    <label class="settings-checkbox">
+                    <input type="checkbox" id="advanced-mode">
+                    <span class="checkbox-custom"></span>
+                    <i class="material-symbols-rounded">construction</i>
+                    <span data-i18n="settings_panel.advanced_mode">拡張モード</span>
+                    </label>
+                </div>
                 <hr class="settings-divider">
                 <div class="settings-item">
                     <button id="import-json-btn" class="export-btn import-btn">
                     <i class="material-symbols-rounded">upload_file</i>
                     <span data-i18n="settings_panel.import_json">JSONをインポート</span>
                     </button>
-                </div>
-                <!--<hr class="settings-divider">
-                <div class="settings-item">
-                    <label class="settings-checkbox">
-                    <input type="checkbox" id="advanced-mode">
-                    <span class="checkbox-custom"></span>
-                    <i class="material-symbols-rounded">construction</i>
-                    <span>高度な編集モード</span>
-                    </label>
-                </div>-->
                 </div>
             </div>
             `;
@@ -293,14 +291,39 @@ export class SettingsManager {
 
         // 高度な編集モードの変更イベント
         if (advancedModeCheckbox) {
+            // 拡張モードの切替: 状態を保存してイベント通知
             advancedModeCheckbox.addEventListener('change', (e) => {
-                this.settings.advancedMode = e.target.checked;
-                // AdvancedModeManagerに通知
-                const event = new CustomEvent('advancedModeChanged', {
-                    detail: { enabled: e.target.checked }
-                });
-                document.dispatchEvent(event);
+                const enabled = e.target.checked;
+                this.settings.advancedMode = enabled;
+                localStorage.setItem('grapen-advanced-mode', JSON.stringify(enabled));
+                localStorage.setItem('advancedMode', enabled ? 'true' : 'false');
+                document.dispatchEvent(new CustomEvent('advancedModeChanged', { detail: { enabled } }));
             });
+        }
+
+        // 外部から拡張モードが変更された場合にチェックボックスを同期
+        // AdvancedModeManager など外部コンポーネントが現在の状態を通知したときに同期
+        // 外部から拡張モードが変更された場合にチェックボックスを同期
+        document.addEventListener('advancedModeStateChanged', (ev) => {
+            const enabled = !!(ev && ev.detail && ev.detail.enabled);
+            if (advancedModeCheckbox) advancedModeCheckbox.checked = enabled;
+            this.settings.advancedMode = enabled;
+        });
+
+        // 初期状態をAdvancedModeManager または localStorage から取得して反映
+        // 初期値をストレージから読み込む（grapen-advanced-mode を優先）
+        const storedAdvanced = localStorage.getItem('grapen-advanced-mode');
+        if (storedAdvanced !== null) {
+            const v = storedAdvanced === '1' || storedAdvanced === 'true';
+            if (advancedModeCheckbox) advancedModeCheckbox.checked = v;
+            this.settings.advancedMode = v;
+        } else {
+            const stored = localStorage.getItem('advancedMode');
+            if (stored !== null) {
+                const v = stored === '1' || stored === 'true';
+                if (advancedModeCheckbox) advancedModeCheckbox.checked = v;
+                this.settings.advancedMode = v;
+            }
         }
 
         // パネル外をクリックした時に閉じる
@@ -579,20 +602,20 @@ export class SettingsManager {
                     const type = curveData.type || 'parametric';
 
                     // CurveManagerに曲線を追加
-                    this.curveManager.addCurve(
-                        curveId,
-                        type,
-                        svgPath,
-                        color,
-                        width,
-                        graphCurve,
-                        latexEquations,
-                        {}, // approximatorSettingsは空でOK
-                        preKnots,
-                        minKnots,
-                        maxKnots,
-                        originalPoints
-                    );
+                    this.curveManager.addCurve({
+                        id: curveId,
+                        type: type,
+                        path: svgPath,
+                        color: color,
+                        size: width,
+                        graphCurve: graphCurve,
+                        latexEquations: latexEquations,
+                        approximatorSettings: {},
+                        preKnots: preKnots,
+                        minKnots: minKnots,
+                        maxKnots: maxKnots,
+                        originalPoints: originalPoints
+                    });
 
                     // 節点データを保存
                     if (knotPoints && Array.isArray(knotPoints)) {
@@ -617,7 +640,6 @@ export class SettingsManager {
                     
                     // UIManagerに状態更新を通知
                     this.curveManager.uiManager.updateHistoryButtons();
-                    this.curveManager.uiManager.updateClearButtonState();
                 }
 
                 return true;

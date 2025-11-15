@@ -2,17 +2,17 @@ export class NewFeatureModal {
     constructor(languageManager) {
         this.featureLists = {
             ja: [
-                "キーボードショートカットを追加！ Ctrl+Z (元に戻す)、Ctrl+Y (やり直し)、Ctrl+S (保存) が使えるようになりました。",
-                "数式コピーを修正！Desmos形式のpiecewiseを追加しました。",
-                "その他、細かいバグを修正し、さらに使いやすくなりました。"
+                "スマートフォン用の新しいヘッダーを追加し、モバイルでの操作性を改善しました。",
+                "新しい近似器とアルゴリズムを追加・改善しました（一次／二次／ベジェ／円・複合曲線など）、より多彩で高精度な近似が可能です。",
+                "スナップ機能やカラーパレット・モーダルのUI改良を行い、数式のコピー（Ctrl+C→Desmos）や描画ツールの使いやすさを向上しました。"
             ],
             en: [
-                "New Keyboard Shortcuts! You can now use Ctrl+Z (Undo), Ctrl+Y (Redo), and Ctrl+S (Save).",
-                "Fixed Formula Copy! Added piecewise support in Desmos format.",
-                "We've also fixed some minor bugs to make things even smoother!"
+                "Added a new header optimized for smartphones and improved mobile usability.",
+                "Introduced and improved approximation algorithms (linear, quadratic, Bezier, circle/ellipse, composite), enabling more accurate and diverse curve fitting.",
+                "Enhanced usability with snapping, an updated color palette and UI tweaks; added Ctrl+C copy for curve formulas (paste into Desmos)."
             ]
         };
-        this.version = 'v1.0.3';
+        this.version = 'v-1.1.0';
         this.languageManager = languageManager;
         this.storageKey = `newFeatureModalShown_v${this.version}`;
         this.modal = null;

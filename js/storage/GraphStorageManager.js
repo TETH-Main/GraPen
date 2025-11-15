@@ -10,20 +10,6 @@ export class GraphStorageManager {
 
     async initializeGraphList() {
         const localGraphs = this.loadFromLocal();
-        
-        // 仮データがなければ自動投入
-        if (!localGraphs || localGraphs.length === 0) {
-            // this.graphList = [
-            //     {
-            //         hash: 'a1b2c3d4e5',
-            //         title: 'テストグラフデータ',
-            //         thumbnail: 'https://placehold.jp/56x56.png?text=Test',
-            //         timestamp: Date.now()
-            //     }
-            // ];
-            this.saveToLocal(this.graphList);
-            return;
-        }
 
         // 各ハッシュに対してFirestoreを確認
         for (const graph of localGraphs) {

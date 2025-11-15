@@ -86,11 +86,11 @@
 #save-graph-btn {
     background-color: #007bff;
     padding: 0 16px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 500;
     letter-spacing: 0.02em;
-    min-width: 120px;
+    min-width: 70px;
 }
 
 #save-graph-btn:hover {

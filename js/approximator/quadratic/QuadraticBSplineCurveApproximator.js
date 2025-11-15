@@ -66,17 +66,10 @@ export class QuadraticBSplineCurveApproximator {
 
         try {
             // 近似本体
-            // const approx = new BSplineApproximator(optimizedPoints, options);
             const approx = new BSplineApproximator(points, options);
 
-            // 節点数が指定されていれば
-            if (options && options.knotsNum) {
-                // 節点数を指定し近似
-                approx.setKnotsNum(options.knotsNum);
-            }
-
             // 元座標系での近似結果を取得
-            const result = approx.getApproximationResult();
+            const result = approx.getApproximationResult(true);
 
             this.result = {
                 success: true,
@@ -92,8 +85,41 @@ export class QuadraticBSplineCurveApproximator {
                 latexEquations: result.latexEquations,
             };
 
+            // approx.preKnotsのpriorityが0未満のものを取得
+            const outerKnots = result.preKnots.filter(knot => knot.priority < 0);
+
+            // 実際に使用された節点数を取得（maxKnots変更時のズレを防ぐ）
+            const approxKnotsNum = Number.isInteger(approx?.knots_num) ? approx.knots_num : approx.options.initKnots;
+            const requestedKnotsNum = Number.isInteger(options?.knotsNum) ? options.knotsNum : approxKnotsNum;
+            const knotsNum = Math.max(
+                this.options.minKnots,
+                Math.min(requestedKnotsNum, approxKnotsNum)
+            );
+
+            // 節点数nに対し、優先度情報は 0 ~ n-3 で付与されている
+            // 両端は制御点なので優先度は付与しないため、n-2個の優先度を決定する
+            const priorityKnots = [];
+
+            const initialCandidate = result.preKnots.find(knot => knot && knot.priority === knotsNum - 3);
+            if (initialCandidate) priorityKnots.push(initialCandidate);
+
+            // 指定されたknots数から1ずつ減らしていき優先度を決定
+            for (let i = knotsNum - 1; i >= 3; i--) {
+                const candidates = approx.GetPriority(i);
+                if (!Array.isArray(candidates)) continue;
+                const match = candidates.find(knot => knot && knot.priority === i - 3);
+                if (match) priorityKnots.push(match);
+            }
+
+            priorityKnots.push(...outerKnots);
+            this.result.preKnots = priorityKnots
+                .flat()
+                .filter(Boolean)
+                .sort((a, b) => a.knot - b.knot);
+
             return this.result;
         } catch (e) {
+            console.error(this.logPrefix, "近似処理でエラーが発生しました:", e);
             return {
                 success: false,
                 message: e.message,
@@ -146,16 +172,12 @@ export class QuadraticBSplineCurveApproximator {
         }
 
         try {
-            // カスタムノットを[0,1]区間に正規化
-            const normalizedKnots = customKnots.map(x =>
-                (x - domain.xMin) / (domain.xMax - domain.xMin)
-            );
 
             // 近似本体のインスタンス作成
             const approx = new BSplineApproximator(points, options);
 
             // カスタムノットを設定
-            approx.setCustomKnots(normalizedKnots);
+            approx.setCustomKnots(customKnots);
 
             // 元座標系での近似結果を取得
             const result = approx.getApproximationResult();
@@ -199,20 +221,28 @@ export class QuadraticBSplineCurveApproximator {
 
         const pathCommands = [];
 
-        // 最初の点の移動コマンド (M) を追加
-        const firstPoint = data[0].start;
-        pathCommands.push(`M ${firstPoint[0]} ${firstPoint[1]}`);
+        // // 最初の点の移動コマンド (M) を追加
+        // const firstPoint = data[0].start;
+        // pathCommands.push(`M ${firstPoint[0]} ${firstPoint[1]}`);
+
+        // // 二次ベジェ曲線コマンド (Q) を順に追加
+        // for (const segment of data) {
+        //     const controlPoint = segment.control;
+        //     const endPoint = segment.end;
+        //     pathCommands.push(`Q ${controlPoint[0]} ${controlPoint[1]} ${endPoint[0]} ${endPoint[1]}`);
+        // }
 
         // 二次ベジェ曲線コマンド (Q) を順に追加
         for (const segment of data) {
+            const firstPoint = segment.start;
             const controlPoint = segment.control;
             const endPoint = segment.end;
-            pathCommands.push(`Q ${controlPoint[0]} ${controlPoint[1]} ${endPoint[0]} ${endPoint[1]}`);
+            pathCommands.push(`M ${firstPoint[0]} ${firstPoint[1]} Q ${controlPoint[0]} ${controlPoint[1]} ${endPoint[0]} ${endPoint[1]}`);
         }
 
         return pathCommands.join(" ");
     }
-
+    
     /**
      * 点列の単調性をチェック（x座標についてほぼ単調増加・減少かどうか）
      * @param {Array} points - ドメイン座標系の点列 [[x1,y1], [x2,y2], ...]
