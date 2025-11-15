@@ -55,10 +55,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // UI管理の初期化
     const uiManager = new UIManager(
-        settings, 
-        graphCalculator, 
-        curveManager, 
-        historyManager, 
+        settings,
+        graphCalculator,
+        curveManager,
+        historyManager,
         curveMovementHandler,
         graphStorageManager,
         languageManager
@@ -88,6 +88,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         settings,
         curveMovementHandler
     );
+
+    // グローバルに公開（開発者ツールのコンソールからアクセス可能）
+    window.GraPen = graPen;
 
     // URL からハッシュパラメータを取得してグラフを読み込み
     // --- ホームボタンの表示/非表示をドメイン状態に応じて切り替える ---
@@ -130,34 +133,31 @@ document.addEventListener('DOMContentLoaded', async function () {
     await URLParamsUtil.loadGraphFromHashParameter(graphStorageManager, uiManager);
     // 初期状態に応じてホームボタンを更新（読み込みでドメインが変わるため）
     try { updateHomeVisibility(); } catch (e) { /* ignore */ }
-
-    // グローバルに公開（開発者ツールのコンソールからアクセス可能）
-    window.GraPen = graPen;
 });
 
-    // ビューポート高さとキャンバス領域を動的に計算して CSS 変数にセットする
-    // モバイルブラウザでアドレスバー等が表示/非表示になると window.innerHeight が変化するため
-    // それに合わせて --viewport-height / --canvas-height / --header-height を更新し、
-    // CSS 側でそれらを参照してレイアウトを安定させます。
-    function updateMobileViewportVars() {
-        try {
-            const vh = window.innerHeight || document.documentElement.clientHeight;
-            document.documentElement.style.setProperty('--viewport-height', `${vh}px`);
+// ビューポート高さとキャンバス領域を動的に計算して CSS 変数にセットする
+// モバイルブラウザでアドレスバー等が表示/非表示になると window.innerHeight が変化するため
+// それに合わせて --viewport-height / --canvas-height / --header-height を更新し、
+// CSS 側でそれらを参照してレイアウトを安定させます。
+function updateMobileViewportVars() {
+    try {
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        document.documentElement.style.setProperty('--viewport-height', `${vh}px`);
 
-            const header = document.querySelector('.header');
-            const headerH = header ? header.offsetHeight : 46;
-            document.documentElement.style.setProperty('--header-height', `${headerH}px`);
+        const header = document.querySelector('.header');
+        const headerH = header ? header.offsetHeight : 46;
+        document.documentElement.style.setProperty('--header-height', `${headerH}px`);
 
-    // キャンバス領域はヘッダを除いた可視高さの 45% を目安にし、260px〜480px の範囲に収める
-    // （ユーザーの要望に応じてキャンバスをさらに広めに確保）
-    const canvasH = Math.min(480, Math.max(260, Math.round((vh - headerH) * 0.45)));
-            document.documentElement.style.setProperty('--canvas-height', `${canvasH}px`);
-        } catch (e) {
-            // console.warn('updateMobileViewportVars failed', e);
-        }
+        // キャンバス領域はヘッダを除いた可視高さの 45% を目安にし、260px〜480px の範囲に収める
+        // （ユーザーの要望に応じてキャンバスをさらに広めに確保）
+        const canvasH = Math.min(480, Math.max(260, Math.round((vh - headerH) * 0.45)));
+        document.documentElement.style.setProperty('--canvas-height', `${canvasH}px`);
+    } catch (e) {
+        // console.warn('updateMobileViewportVars failed', e);
     }
+}
 
-    // 初期セットとウィンドウ変化時の更新
-    document.addEventListener('DOMContentLoaded', () => updateMobileViewportVars());
-    window.addEventListener('resize', () => updateMobileViewportVars());
-    window.addEventListener('orientationchange', () => updateMobileViewportVars());
+// 初期セットとウィンドウ変化時の更新
+document.addEventListener('DOMContentLoaded', () => updateMobileViewportVars());
+window.addEventListener('resize', () => updateMobileViewportVars());
+window.addEventListener('orientationchange', () => updateMobileViewportVars());

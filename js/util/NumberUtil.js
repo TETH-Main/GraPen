@@ -248,7 +248,7 @@ function addDeltaToLastNumberBetter(part, delta) {
 }
 
 function translateControlPoints(expr, dx, dy) {
-    return expr.replace(/\(\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*\)/g, function(_, xs, ys) {
+    return expr.replace(/\(\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*\)/g, function (_, xs, ys) {
         const nx = Number(xs) + dx;
         const ny = Number(ys) + dy;
         return `(${nx},${ny})`;
@@ -439,13 +439,13 @@ function formatQuadraticFromCoeffs(a, b, c) {
     c = Number(c);
     let parts = [];
     if (a !== 0) {
-    parts.push((a === 1) ? 'x^2' : (a === -1 ? '-x^2' : (formatNumber(a, 3) + 'x^2')));
+        parts.push((a === 1) ? 'x^2' : (a === -1 ? '-x^2' : (formatNumber(a, 3) + 'x^2')));
     }
     if (b !== 0) {
-    parts.push((b > 0 ? '+ ' : '- ') + (Math.abs(b) === 1 ? 'x' : (formatNumber(Math.abs(b), 3) + 'x')));
+        parts.push((b > 0 ? '+ ' : '- ') + (Math.abs(b) === 1 ? 'x' : (formatNumber(Math.abs(b), 3) + 'x')));
     }
     if (c !== 0) {
-    parts.push((c > 0 ? '+ ' : '- ') + formatNumber(Math.abs(c), 3));
+        parts.push((c > 0 ? '+ ' : '- ') + formatNumber(Math.abs(c), 3));
     }
     if (parts.length === 0) return 'y = 0';
     let body = parts.join(' ');
@@ -466,12 +466,12 @@ export function applyDeltaToFormulaNumeric(formula, dx = 0, dy = 0) {
         const newH = h + dx;
         const newK = k + dy;
         // 形式を a(x-h)^2 + k の形で保持する
-    const aStr = (a === 1) ? '' : (a === -1 ? '-' : formatNumber(a, 3));
-    const hRaw = newH;
-    const hStr = formatNumber(Math.abs(hRaw), 3);
-    const hMiddle = (hRaw >= 0) ? ` - ${hStr}` : ` + ${hStr}`;
-    const kPart = newK === 0 ? '' : (newK > 0 ? ` + ${formatNumber(newK, 3)}` : ` - ${formatNumber(Math.abs(newK), 3)}`);
-    return `y = ${aStr}(x${hMiddle})^2${kPart}`;
+        const aStr = (a === 1) ? '' : (a === -1 ? '-' : formatNumber(a, 3));
+        const hRaw = newH;
+        const hStr = formatNumber(Math.abs(hRaw), 3);
+        const hMiddle = (hRaw >= 0) ? ` - ${hStr}` : ` + ${hStr}`;
+        const kPart = newK === 0 ? '' : (newK > 0 ? ` + ${formatNumber(newK, 3)}` : ` - ${formatNumber(Math.abs(newK), 3)}`);
+        return `y = ${aStr}(x${hMiddle})^2${kPart}`;
     }
 
     // 特殊ケース: 括弧形式 a(x - p) + q の線形式 -> p を dx、q を dy だけ移動して形式を保持する
@@ -516,13 +516,13 @@ export function applyDeltaToFormulaNumeric(formula, dx = 0, dy = 0) {
     // 特殊ケース: 暗黙円 (x - h)^2 + (y - k)^2 = r^2 -> h, k をそれぞれ dx, dy だけ平行移動する
     if (/\(x[^\)]*\)\^?2/.test(formula) && /\(y[^\)]*\)\^?2/.test(formula)) {
         let s = formula;
-        s = s.replace(/\(x\s*([-+])\s*(\d*\.?\d+)\s*\)/g, function(_, sign, num) {
+        s = s.replace(/\(x\s*([-+])\s*(\d*\.?\d+)\s*\)/g, function (_, sign, num) {
             const h = (sign === '-' ? Number(num) : -Number(num));
             const newH = h + dx;
             const sign2 = newH < 0 ? '+' : '-';
             return `(x${sign2}${Math.abs(newH)})`;
         });
-        s = s.replace(/\(y\s*([-+])\s*(\d*\.?\d+)\s*\)/g, function(_, sign, num) {
+        s = s.replace(/\(y\s*([-+])\s*(\d*\.?\d+)\s*\)/g, function (_, sign, num) {
             const k = (sign === '-' ? Number(num) : -Number(num));
             const newK = k + dy;
             const sign2 = newK < 0 ? '+' : '-';
@@ -562,7 +562,7 @@ export function applyDeltaToFormulaNumeric(formula, dx = 0, dy = 0) {
         const y0 = evaluateAtX(formula, 0);
         const y1 = evaluateAtX(formula, 1);
         const y2 = evaluateAtX(formula, 2);
-    if (isFinite(y0) && isFinite(y1) && isFinite(y2)) {
+        if (isFinite(y0) && isFinite(y1) && isFinite(y2)) {
             // y = ax^2 + bx + c（係数表記）
             // y0 = c
             // y1 = a + b + c

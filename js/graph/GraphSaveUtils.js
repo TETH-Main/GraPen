@@ -314,30 +314,6 @@ export function saveToJSON(calculator, filename = 'graph-data', additionalSettin
             });
         }
 
-        // 保存用に不要な再計算可能フィールドを削除
-        function stripCurveForSave(c) {
-            // 最低限のオブジェクトコピー
-            const out = { ...c };
-            // 削除対象のトップレベルフィールド
-            delete out.strokeDasharray;
-            delete out.style;
-            delete out.originalPoints;
-            delete out.knotPoints;
-            delete out.knotCount;
-            delete out.data;
-            delete out.preKnots;
-
-            // latexEquations 内の rpn を削除（type などの形状情報は保持）
-            if (Array.isArray(out.latexEquations)) {
-                out.latexEquations = out.latexEquations.map(eq => {
-                    const clone = { ...eq };
-                    delete clone.rpn;
-                    return clone;
-                });
-            }
-            return out;
-        }
-
         const strippedCurves = enhancedCurves.map(stripCurveForSave);
 
         // 保存するデータを収集
@@ -464,11 +440,20 @@ export function loadFromJSON(calculator, jsonData, settingsCallback = null, opti
                                 type: curveData.type || (curveData.latexEquations[0] && curveData.latexEquations[0].type) || null,
                                 approximationData: curveData.approximationData || null
                             };
-                            curveData.data = window.GraPen.generateSVGPathFromFormula(
-                                curveData.latexEquations,
-                                curveData.originalPoints,
-                                generatorOptions
-                            );
+                            const graPenAPI = (typeof window !== 'undefined' && window.GraPen &&
+                                typeof window.GraPen.generateSVGPathFromFormula === 'function')
+                                ? window.GraPen
+                                : null;
+
+                            if (graPenAPI) {
+                                curveData.data = graPenAPI.generateSVGPathFromFormula(
+                                    curveData.latexEquations,
+                                    curveData.originalPoints,
+                                    generatorOptions
+                                );
+                            } else {
+                                console.warn('GraPen API unavailable for path regeneration; skipping data rebuild for curve', curveData && curveData.id);
+                            }
                         }
 
                         // type="quadratic" のときに preKnots を単純初期化してセットする（外部 approximator は使わない）
@@ -945,6 +930,116 @@ function downloadBlob(blob, filename) {
     }, 100);
 }
 
+// 保存する前に一時的なフィールドを削除
+function stripCurveForSave(curve) {
+    const out = { ...curve };
+    delete out.strokeDasharray;
+    delete out.style;
+    delete out.originalPoints;
+    delete out.knotPoints;
+    delete out.knotCount;
+    delete out.data;
+    delete out.preKnots;
+
+    if (Array.isArray(out.latexEquations)) {
+        out.latexEquations = out.latexEquations.map(eq => {
+            const clone = { ...eq };
+            delete clone.rpn;
+            return clone;
+        });
+    }
+
+    return out;
+}
+
+function collectGraphCurves(calculator) {
+    return calculator.getAllCurves().map(curve => ({
+        id: curve.id,
+        color: curve.color,
+        width: curve.width,
+        opacity: curve.opacity,
+        visibility: curve.visibility !== undefined ? curve.visibility : true,
+        data: curve.originalData,
+        strokeDasharray: curve.strokeDasharray || 'none',
+        style: curve.style || null,
+    }));
+}
+
+function mergeCurveManagerData(graphCurves, curves) {
+    if (!Array.isArray(curves)) {
+        return graphCurves;
+    }
+
+    return graphCurves.map(graphCurve => {
+        const cmCurve = curves.find(c => c.graphCurve && c.graphCurve.id === graphCurve.id);
+        if (!cmCurve) return graphCurve;
+
+        const enhancedData = {
+            ...graphCurve,
+            isHidden: cmCurve.isHidden || false,
+            isDetailShown: cmCurve.isDetailShown || false,
+            latexEquations: cmCurve.latexEquations || [],
+            preKnots: cmCurve.preKnots || [],
+            type: cmCurve.type || 'parametric',
+            originalPoints: cmCurve.originalPoints,
+            knotCount: cmCurve.knotCount || 10,
+            minKnots: cmCurve.minKnots || 2,
+            maxKnots: cmCurve.maxKnots || 10,
+            approximationType: cmCurve.approximationType || cmCurve.type || null,
+            approximationData: cmCurve.approximationData || null,
+            approximationDiagnostics: cmCurve.approximationDiagnostics || null,
+            selectedApproximator: cmCurve.selectedApproximator || null,
+            approximatorPriority: typeof cmCurve.approximatorPriority === 'number' ? cmCurve.approximatorPriority : null,
+        };
+
+        if (cmCurve.knotPoints && cmCurve.knotPoints.length > 0) {
+            enhancedData.knotPoints = cmCurve.knotPoints.map(knot => ({
+                x: knot.x,
+                y: knot.y,
+                id: knot.point ? knot.point.id : null
+            }));
+        }
+
+        if (cmCurve.points && cmCurve.points.length > 0 && (!graphCurve.points || graphCurve.points.length === 0)) {
+            enhancedData.points = cmCurve.points.map(point => ({
+                id: point.id,
+                x: point.x,
+                y: point.y,
+                shape: point.shapeType || 'circle',
+                size: point.size,
+                color: point.color,
+                opacity: point.opacity !== undefined ? point.opacity : 1.0,
+                visibility: point.visibility !== undefined ? point.visibility : true,
+                strokeWidth: point.strokeWidth,
+                style: point.style || {},
+                properties: point.properties || {}
+            }));
+        }
+
+        return enhancedData;
+    });
+}
+
+function buildSaveData(calculator, additionalSettings = null, curves = null) {
+    const graphCurves = collectGraphCurves(calculator);
+    const mergedCurves = mergeCurveManagerData(graphCurves, curves);
+    const strippedCurves = mergedCurves.map(stripCurveForSave);
+
+    const saveData = {
+        version: 'v-1.1.0',
+        timestamp: new Date().toISOString(),
+        domain: calculator.getDomain(),
+        curves: strippedCurves,
+        options: calculator.options,
+    };
+
+    if (additionalSettings) {
+        saveData.settings = additionalSettings;
+    }
+
+    return saveData;
+}
+
 /**
  * SVGをPNG形式でBase64データとして取得する（ダウンロードしない）
  * @param {GraphCalculator} calculator
@@ -1021,180 +1116,8 @@ export async function getPNGBase64(calculator, width = 128, height = 128, qualit
  */
 export function getJSONDataString(calculator, additionalSettings = null, curves = null) {
     try {
-        const graphCurves = calculator.getAllCurves().map(curve => ({
-            id: curve.id,
-            color: curve.color,
-            width: curve.width,
-            opacity: curve.opacity,
-            visibility: curve.visibility !== undefined ? curve.visibility : true,
-            data: curve.originalData,
-            strokeDasharray: curve.strokeDasharray || 'none',
-            style: curve.style || null,
-            // points は必要に応じて CurveManager 側から補完される
-            points: curve.points || []
-        }));
-
-        // CurveManager の情報とマージ
-        let enhancedCurves = graphCurves;
-        if (curves && Array.isArray(curves)) {
-            enhancedCurves = graphCurves.map(graphCurve => {
-                const cmCurve = curves.find(c => c.graphCurve && c.graphCurve.id === graphCurve.id);
-                if (cmCurve) {
-                    const enhancedData = {
-                        ...graphCurve,
-                        isHidden: cmCurve.isHidden || false,
-                        isDetailShown: cmCurve.isDetailShown || false,
-                        latexEquations: cmCurve.latexEquations || [],
-                        preKnots: cmCurve.preKnots || [],
-                        type: cmCurve.type || 'parametric',
-                        originalPoints: cmCurve.originalPoints,
-                        knotCount: cmCurve.knotCount || 10,
-                        minKnots: cmCurve.minKnots || 2,
-                        maxKnots: cmCurve.maxKnots || 10,
-                    };
-
-                    if (cmCurve.knotPoints && cmCurve.knotPoints.length > 0) {
-                        enhancedData.knotPoints = cmCurve.knotPoints.map(knot => ({ x: knot.x, y: knot.y, id: knot.point ? knot.point.id : null }));
-                    }
-
-                    if (cmCurve.points && cmCurve.points.length > 0 && (!graphCurve.points || graphCurve.points.length === 0)) {
-                        enhancedData.points = cmCurve.points.map(point => ({
-                            id: point.id,
-                            x: point.x,
-                            y: point.y,
-                            shape: point.shapeType || 'circle',
-                            size: point.size,
-                            color: point.color,
-                            opacity: point.opacity !== undefined ? point.opacity : 1.0,
-                            visibility: point.visibility !== undefined ? point.visibility : true,
-                            strokeWidth: point.strokeWidth,
-                            style: point.style || {},
-                            properties: point.properties || {}
-                        }));
-                    }
-
-                    return enhancedData;
-                }
-                return graphCurve;
-            });
-        }
-
-        // saveToJSON と同じく不要項目を削除して保存用データを作成
-        const strippedCurves = enhancedCurves.map(stripCurveForSave);
-
-        const saveData = {
-            version: 'v-1.1.0',
-            timestamp: new Date().toISOString(),
-            domain: calculator.getDomain(),
-            curves: strippedCurves,
-            options: calculator.options,
-        };
-
-        if (additionalSettings) saveData.settings = additionalSettings;
-
+        const saveData = buildSaveData(calculator, additionalSettings, curves);
         return JSON.stringify(saveData, null, 2);
-    } catch (e) {
-        console.error('JSON文字列作成中にエラーが発生しました:', e);
-        return '';
-    }
-}
-
-/**
- * グラフの状態をJSON文字列として取得する（ダウンロードしない）
- * @param {GraphCalculator} calculator
- * @param {Object} additionalSettings - 追加の設定情報（SettingsManagerなどの状態）
- * @param {Array} curves - CurveManagerからの曲線情報（表示状態と詳細表示状態を含む）
- * @returns {string} JSON文字列
- */
-export function getJSONFullDataString(calculator, additionalSettings = null, curves = null) {
-    try {
-        // GraphCalculatorの曲線データを取得
-        const graphCurves = calculator.getAllCurves().map(curve => {
-            // 基本的な曲線データ
-            return {
-                id: curve.id,
-                color: curve.color,
-                width: curve.width,
-                opacity: curve.opacity,
-                visibility: curve.visibility !== undefined ? curve.visibility : true,
-                data: curve.originalData,
-                strokeDasharray: curve.strokeDasharray || 'none',
-                style: curve.style || null,
-                points: curve.points || []
-            };
-        });
-
-        // CurveManagerからの曲線情報と結合
-        let enhancedCurves = graphCurves;
-        if (curves && Array.isArray(curves)) {
-            // GraphCalculatorとCurveManagerの曲線データを統合
-            enhancedCurves = graphCurves.map(graphCurve => {
-                // 対応するCurveManagerの曲線を検索
-                const cmCurve = curves.find(c => c.graphCurve && c.graphCurve.id === graphCurve.id);
-                if (cmCurve) {
-                    // CurveManagerから追加情報を取得
-                    const enhancedData = {
-                        ...graphCurve,
-                        isHidden: cmCurve.isHidden || false,
-                        isDetailShown: cmCurve.isDetailShown || false,
-                        latexEquations: cmCurve.latexEquations || [], // 数式情報も保存
-                        preKnots: cmCurve.preKnots || [], // 曲線の前節点情報
-                        type: cmCurve.type || 'parametric', // 曲線のタイプ
-                        originalPoints: cmCurve.originalPoints, // 近似に必要なため元の点データを保存
-                        knotCount: cmCurve.knotCount || 10, // 曲線の節点数
-                        minKnots: cmCurve.minKnots || 2, // 曲線の最小節点数
-                        maxKnots: cmCurve.maxKnots || 10, // 曲線の最大節点数
-                    };
-
-                    // 節点データがある場合は保存
-                    if (cmCurve.knotPoints && cmCurve.knotPoints.length > 0) {
-                        enhancedData.knotPoints = cmCurve.knotPoints.map(knot => ({
-                            x: knot.x,
-                            y: knot.y,
-                            id: knot.point ? knot.point.id : null
-                        }));
-                    }
-
-                    // 点データが不足している場合は追加
-                    if (cmCurve.points && cmCurve.points.length > 0 &&
-                        (!graphCurve.points || graphCurve.points.length === 0)) {
-                        enhancedData.points = cmCurve.points.map(point => ({
-                            id: point.id,
-                            x: point.x,
-                            y: point.y,
-                            shape: point.shapeType || 'circle',
-                            size: point.size,
-                            color: point.color,
-                            opacity: point.opacity !== undefined ? point.opacity : 1.0,
-                            visibility: point.visibility !== undefined ? point.visibility : true,
-                            strokeWidth: point.strokeWidth,
-                            style: point.style || {},
-                            properties: point.properties || {}
-                        }));
-                    }
-
-                    return enhancedData;
-                }
-                return graphCurve;
-            });
-        }
-
-        // 保存するデータを収集
-        const saveData = {
-            version: 'v-1.0',
-            timestamp: new Date().toISOString(),
-            domain: calculator.getDomain(),
-            curves: enhancedCurves,
-            options: calculator.options,
-        };
-
-        // 追加の設定情報がある場合は追加
-        if (additionalSettings) {
-            saveData.settings = additionalSettings;
-        }
-
-        // JSONに変換して返す
-        return JSON.stringify(saveData);
     } catch (e) {
         console.error('JSON文字列作成中にエラーが発生しました:', e);
         return '';

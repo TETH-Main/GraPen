@@ -567,7 +567,7 @@ export class SettingsManager {
             if (result && result.success && this.curveManager) {
                 // 曲線リストをクリア
                 this.curveManager.curves = [];
-                
+
                 // UIManagerがアクセス可能な場合は設定も更新
                 if (this.curveManager.uiManager) {
                     this.curveManager.uiManager.settings.nextCurveId = 0;
@@ -581,10 +581,10 @@ export class SettingsManager {
                     }
 
                     // 曲線データから必要な情報を取得
-                    const curveId = this.curveManager.uiManager ? 
-                        this.curveManager.uiManager.settings.nextCurveId++ : 
+                    const curveId = this.curveManager.uiManager ?
+                        this.curveManager.uiManager.settings.nextCurveId++ :
                         this.curveManager.curves.length;
-                        
+
                     const color = curveData.color || '#000';
                     const width = curveData.width || 4;
                     const latexEquations = curveData.latexEquations || [];
@@ -637,7 +637,7 @@ export class SettingsManager {
                     // 履歴をリセット（復元されたグラフは初期状態として扱う）
                     this.historyManager.undoStack = [];
                     this.historyManager.redoStack = [];
-                    
+
                     // UIManagerに状態更新を通知
                     this.curveManager.uiManager.updateHistoryButtons();
                 }

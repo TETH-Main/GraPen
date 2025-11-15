@@ -662,7 +662,7 @@ export class BSplineApproximator {
                 y0 = a2 * x0 * x0 + b2 * x0 + c2; // 始点のy座標を再計算
                 y1 = a2 * x1 * x1 + b2 * x1 + c2; // 終点のy座標を再計算
                 P1y = a2 * x0 * x1 + b2 * xm + c2; // 制御点のy座標を再計算
-                
+
                 console.log('Rounded Coefficients:', `${a2}x^2 + ${b2}x + ${c2}`);
             }
 

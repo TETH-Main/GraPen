@@ -189,15 +189,21 @@
     flex-shrink: 0;
 }
 
-.jump-to-curve-btn .material-symbols-outlined { font-size: 18px; line-height: 1; }
-
-.jump-to-curve-btn:hover{
-    background: rgba(0,123,255,0.06);
-    color: var(--primary-color, #007bff);
-    border-color: rgba(0,123,255,0.18);
+.jump-to-curve-btn .material-symbols-outlined {
+    font-size: 18px;
+    line-height: 1;
 }
 
-.jump-to-curve-btn:focus{ outline:none; box-shadow:0 0 0 3px rgba(0,123,255,0.10); }
+.jump-to-curve-btn:hover {
+    background: rgba(0, 123, 255, 0.06);
+    color: var(--primary-color, #007bff);
+    border-color: rgba(0, 123, 255, 0.18);
+}
+
+.jump-to-curve-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.10);
+}
 
 /* 移動モード時の通知バー */
 .movement-mode-notification {

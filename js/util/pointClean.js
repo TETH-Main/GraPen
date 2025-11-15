@@ -123,8 +123,8 @@ export function ensureFunctionalSamples(samples) {
     // 統計情報を計算
     let orientation = 0; let prevSign = 0; let signChanges = 0; let totalLength = 0; let maxBacktrack = 0;
     for (let i = 1; i < cleaned.length; i++) {
-        const dx = cleaned[i].x - cleaned[i-1].x;
-        const dy = cleaned[i].y - cleaned[i-1].y;
+        const dx = cleaned[i].x - cleaned[i - 1].x;
+        const dy = cleaned[i].y - cleaned[i - 1].y;
         totalLength += Math.hypot(dx, dy);
         if (Math.abs(dx) > 1e-6) {
             const sign = Math.sign(dx);

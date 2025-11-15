@@ -6,7 +6,7 @@ export class TutorialModal {
             console.error('Tutorial container not found');
             return;
         }
-        
+
         // チュートリアルのステップ定義
         this.steps = [
             {
@@ -103,7 +103,7 @@ export class TutorialModal {
 
     initialize() {
         const closeBtn = this.panel.querySelector('.tutorial-close-btn');
-        
+
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 this.hidePanel();

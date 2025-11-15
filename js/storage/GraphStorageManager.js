@@ -15,12 +15,12 @@ export class GraphStorageManager {
         for (const graph of localGraphs) {
             try {
                 const result = await this.checkGraphInFirestore(graph.hash);
-                
+
                 if (result.success) {
                     // Firestoreにデータがある場合、ローカルの詳細データを削除
                     const cleanedGraph = { hash: graph.hash };
                     this.updateLocalGraph(cleanedGraph);
-                    
+
                     // Firestoreから取得したデータをグラフリストに追加
                     this.graphList.push(result);
                 } else {
@@ -33,7 +33,7 @@ export class GraphStorageManager {
                 this.graphList.push(graph);
             }
         }
-        
+
         // // 更新されたリストを保存
         // this.saveToLocal(this.graphList);
     }
@@ -118,13 +118,13 @@ export class GraphStorageManager {
         if (!graphData.timestamp) {
             graphData.timestamp = Date.now();
         }
-        
+
         // メモリ上のグラフリストに追加
         this.graphList.push(graphData);
-        
+
         // ローカルストレージから現在のデータを読み込み
         const localGraphs = this.loadFromLocal();
-        
+
         // 新しいグラフデータを追加（同じハッシュがある場合は上書き）
         const existingIndex = localGraphs.findIndex(g => g.hash === graphData.hash);
         if (existingIndex >= 0) {
@@ -132,7 +132,7 @@ export class GraphStorageManager {
         } else {
             localGraphs.push(graphData);
         }
-        
+
         // 更新されたデータをローカルストレージに保存
         localStorage.setItem(this.storageKey, JSON.stringify(localGraphs));
     }

@@ -29,7 +29,7 @@ export function formatNumber(num) {
     }
 
     const absNum = Math.abs(num);
-    
+
     // 10^5以上の大きな数値
     if (absNum >= 1e5) {
         const exp = Math.floor(Math.log10(absNum));
@@ -38,7 +38,7 @@ export function formatNumber(num) {
         const roundedBase = Math.round(base * 10) / 10;
         return `${roundedBase}×10${toSuperscript(exp)}`;
     }
-    
+
     // 10^-4以下の小さな数値
     if (absNum > 0 && absNum <= 1e-4) {
         const exp = Math.floor(Math.log10(absNum));
@@ -47,7 +47,7 @@ export function formatNumber(num) {
         const roundedBase = Math.round(base * 10) / 10;
         return `${roundedBase}×10${toSuperscript(exp)}`;
     }
-    
+
     // 整数に近い場合は整数として表示
     if (Math.abs(num - Math.round(num)) < 1e-10) {
         return Math.round(num).toString();

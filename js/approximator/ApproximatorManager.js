@@ -865,11 +865,11 @@ export class ApproximatorManager {
         this.tabButtons = [];
         this.tabPanels = new Map();
 
-    this.tabsInner = document.createElement('div');
-    this.tabsInner.className = 'curve-approx-tabs-inner';
-    this.tabsContainer.appendChild(this.tabsInner);
+        this.tabsInner = document.createElement('div');
+        this.tabsInner.className = 'curve-approx-tabs-inner';
+        this.tabsContainer.appendChild(this.tabsInner);
 
-    this.tabConfig.forEach((tab, index) => {
+        this.tabConfig.forEach((tab, index) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'curve-approx-tab';
@@ -901,7 +901,7 @@ export class ApproximatorManager {
             this.renderControlsForTab(tab.id, section);
         });
 
-    window.requestAnimationFrame(() => this.updateTabsIndicator());
+        window.requestAnimationFrame(() => this.updateTabsIndicator());
     }
 
     updateTabsIndicator() {
@@ -1016,15 +1016,15 @@ export class ApproximatorManager {
         wrapper.appendChild(rangeWrapper);
 
         const rangeId = `curve-approx-${settingKey}`;
-    const range = document.createElement('input');
+        const range = document.createElement('input');
         range.type = 'range';
         range.id = rangeId;
         range.min = String(meta.min);
         range.max = String(meta.max);
         range.step = String(meta.step);
-    const initialValue = this.getSettingValue(settingKey, meta);
-    const initialString = initialValue != null ? String(initialValue) : String(meta.min);
-    range.value = initialString;
+        const initialValue = this.getSettingValue(settingKey, meta);
+        const initialString = initialValue != null ? String(initialValue) : String(meta.min);
+        range.value = initialString;
         label.setAttribute('for', rangeId);
 
         const number = document.createElement('input');
@@ -1033,7 +1033,7 @@ export class ApproximatorManager {
         number.min = String(meta.min);
         number.max = String(meta.max);
         number.step = String(meta.step);
-    number.value = initialString;
+        number.value = initialString;
         number.inputMode = meta.decimals ? 'decimal' : 'numeric';
 
         rangeWrapper.appendChild(range);

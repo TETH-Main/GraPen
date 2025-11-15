@@ -18,7 +18,7 @@ export class SaveGraphManager {
         if (this.modal && this.overlay) {
             this.setupEventListeners();
         }
-        
+
         // 初期状態での保存ボタン状態を設定
         this.updateSaveButtonState();
     }
@@ -31,12 +31,12 @@ export class SaveGraphManager {
     updateSaveButtonState() {
         const saveButton = document.getElementById(this.saveButtonId);
         if (!saveButton) return;
-        
+
         // 条件1: 履歴がない場合は無効化
         // 条件2: 保存直後で履歴に変更がない場合も無効化
-        const hasHistory = this.historyManager && 
-                         (!this.historyManager.isUndoStackEmpty() || !this.historyManager.isRedoStackEmpty());
-        
+        const hasHistory = this.historyManager &&
+            (!this.historyManager.isUndoStackEmpty() || !this.historyManager.isRedoStackEmpty());
+
         if (hasHistory && !this.justSaved) {
             saveButton.classList.remove('disabled');
             saveButton.disabled = false;
@@ -45,7 +45,7 @@ export class SaveGraphManager {
             saveButton.disabled = true;
         }
     }
-    
+
     // 新しい履歴が追加されたときに呼ばれるメソッド
     resetSaveState() {
         this.justSaved = false;
@@ -92,7 +92,7 @@ export class SaveGraphManager {
         if (saveBtn) {
             saveBtn.addEventListener('click', () => {
                 if (saveBtn.disabled) return;
-                
+
                 if (this.modal && this.overlay) {
                     this.showModal();
                 } else {
@@ -175,24 +175,24 @@ export class SaveGraphManager {
         if (this.graphCalculator) {
             // CurveManagerの曲線情報を取得する（復元に必須）
             let curveData = null;
-            
+
             // UIManagerから取得を試みる
-            if (this.historyManager && this.historyManager.uiManager && 
+            if (this.historyManager && this.historyManager.uiManager &&
                 this.historyManager.uiManager.curveManager) {
                 curveData = this.historyManager.uiManager.curveManager.curves;
-            } 
+            }
             // windowグローバル変数から取得を試みる
             else if (window.curveManager) {
                 curveData = window.curveManager.curves;
             }
-            
+
             // 設定情報も取得
             let settings = null;
-            if (this.historyManager && this.historyManager.uiManager && 
+            if (this.historyManager && this.historyManager.uiManager &&
                 this.historyManager.uiManager.settingsManager) {
                 settings = this.historyManager.uiManager.settingsManager.settings;
             }
-            
+
             // 完全な復元に必要なデータを含むJSONを生成
             json = getJSONDataString(this.graphCalculator, settings, curveData);
         }
@@ -241,21 +241,21 @@ export class SaveGraphManager {
 
         this.graphStorageManager.addGraph(graphData);
         this.hideModal();
-        
+
         // ヘッダーのタイトル表示を更新
         const titleDisplay = document.getElementById('graph-title-display');
         if (titleDisplay) {
             titleDisplay.textContent = title;
             titleDisplay.classList.add('active');
         }
-        
+
         // ブラウザタブのタイトルも更新
         document.title = `${title} - GraPen`;
         // ブラウザのurlも更新
         if (history && history.replaceState) {
             history.replaceState(null, null, `?hash=${hash}`);
         }
-        
+
         // 保存後は保存ボタンを無効化
         this.justSaved = true;
         this.updateSaveButtonState();

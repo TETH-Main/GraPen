@@ -106,7 +106,7 @@ export class QuadraticBezierChainApproximator {
         const segmentEstimate = Math.max(1, Math.round(totalPoints / 32));
         const segmentCount = Math.min(effectiveOptions.maxSegments, Math.max(1, segmentEstimate));
 
-    const knotPoints = [];
+        const knotPoints = [];
         const segments = [];
         let svgPath = "";
         const latexEquations = [];

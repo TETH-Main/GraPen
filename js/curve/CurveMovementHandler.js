@@ -39,7 +39,7 @@ export class CurveMovementHandler {
             this.setupEventListeners();
         } catch (e) {
         }
-    // 動作フローは finalizeTranslateMove 側の処理で最終決定されます。
+        // 動作フローは finalizeTranslateMove 側の処理で最終決定されます。
     }
 
     /**
@@ -200,10 +200,10 @@ export class CurveMovementHandler {
      */
     handleMouseDown(event) {
         // グローバルトグルに関係なく移動を許可する（進行中のドラッグのみで制御）
-            if (this.dragState.isDragging) return;
-        
+        if (this.dragState.isDragging) return;
+
         // カーソルモード時のみ許可
-            if (this.dragState.penToolState !== 'cursor') return;
+        if (this.dragState.penToolState !== 'cursor') return;
 
         // クリックされた要素またはその親要素からヒットエリアを検索
         let target = event.target;
@@ -287,7 +287,7 @@ export class CurveMovementHandler {
         const svgRect = svg.getBoundingClientRect();
         const mouseX = event.clientX - svgRect.left;
         const mouseY = event.clientY - svgRect.top;
-            // 何もしない
+        // 何もしない
         // マウス位置のドメイン座標を取得
         const mouseDomain = graphCalculator.screenToDomain(mouseX, mouseY);
 
@@ -412,7 +412,7 @@ export class CurveMovementHandler {
             this.dragState.curveBaseTransform = '';
         }
 
-        
+
 
         return dummyCurve;
     }
@@ -516,7 +516,7 @@ export class CurveMovementHandler {
         }
 
         // 数式の更新（リアルタイム表示用）
-        
+
         if (curve.latexEquations && Array.isArray(curve.latexEquations)) {
             const movedEquations = curve.latexEquations.map(equations => (
                 this.getParallelMovedEquations(equations.type, equations, deltaX, deltaY)
@@ -535,7 +535,7 @@ export class CurveMovementHandler {
     updateGuidelines(mouseX, mouseY, deltaX, deltaY) {
         if (!this.dragState.guidelines || !this.dragState.displacementText) return;
 
-    // delta 表示は signedFixedString を使う（存在しない場合は toFixed フォールバック）
+        // delta 表示は signedFixedString を使う（存在しない場合は toFixed フォールバック）
 
         const startX = this.dragState.startX;
         const startY = this.dragState.startY;
@@ -562,9 +562,9 @@ export class CurveMovementHandler {
 
         // X方向移動量
         const xMidX = (startX + mouseX) / 2;
-    this.dragState.displacementText.x.setAttribute("x", xMidX);
-    this.dragState.displacementText.x.setAttribute("y", startY - 10);
-    this.dragState.displacementText.x.textContent = `Δx: ${(typeof signedFixedString === 'function' ? signedFixedString(deltaX, 3) : String(deltaX.toFixed(3)))}`;
+        this.dragState.displacementText.x.setAttribute("x", xMidX);
+        this.dragState.displacementText.x.setAttribute("y", startY - 10);
+        this.dragState.displacementText.x.textContent = `Δx: ${(typeof signedFixedString === 'function' ? signedFixedString(deltaX, 3) : String(deltaX.toFixed(3)))}`;
 
         // Y方向移動量
         const yMidY = (startY + mouseY) / 2;
@@ -879,7 +879,7 @@ export class CurveMovementHandler {
                         return rewritten.trim();
                     }
                 } catch (err) {
-                    
+
                 }
                 return `${cleaned} ${markY(deltaY)}`.trim();
 
@@ -902,7 +902,7 @@ export class CurveMovementHandler {
                         return rewritten.trim();
                     }
                 } catch (err) {
-                    
+
                 }
                 return `${cleaned} ${markY(deltaY)}`.trim();
 
@@ -1006,7 +1006,7 @@ export class CurveMovementHandler {
                 try {
                     return signedFixedString(value, 3);
                 } catch (err) {
-                    
+
                 }
             }
             return value.toFixed(3);
@@ -1295,7 +1295,7 @@ export class CurveMovementHandler {
                     emphasisGroup.setAttribute('transform', baseTransform);
                 }
             } catch (e) {
-                
+
             }
         };
         if (dx === 0 && dy === 0) {

@@ -248,7 +248,7 @@ export class GraPen {
             this.#curveManager.curves.forEach((curve, index) => {
                 if (curve) {
                     curve.id = index;
-                    try { if (curve.path && typeof curve.path.attr === 'function') curve.path.attr('data-id', index); } catch (e) {}
+                    try { if (curve.path && typeof curve.path.attr === 'function') curve.path.attr('data-id', index); } catch (e) { }
                 }
             });
 

@@ -17,6 +17,8 @@ export class URLParamsUtil {
      * @returns {string|null} ハッシュパラメータの値、存在しない場合はnull
      */
     static getHashParameter() {
+        const primary = this.getUrlParameter('hash');
+        if (primary) return primary;
         return this.getUrlParameter('h');
     }
 
@@ -71,7 +73,7 @@ export class URLParamsUtil {
     static updatePageTitle(title) {
         // ページタイトルを更新
         document.title = `${title} - GraPen`;
-        
+
         // ヘッダーのタイトル表示を更新
         const titleDisplay = document.getElementById('graph-title-display');
         if (titleDisplay) {
@@ -98,14 +100,14 @@ export class URLParamsUtil {
 
             // Firestoreからグラフデータを検索
             const result = await graphStorageManager.checkGraphInFirestore(hashParam);
-            
+
             if (result && result.json) {
                 // JSONデータをパース (文字列の場合)
                 const jsonData = typeof result.json === 'string' ? JSON.parse(result.json) : result.json;
-                
+
                 // SettingsManagerを使ってグラフを復元
                 const success = await uiManager.settingsManager.loadGraphFromJSON(jsonData, true);
-                
+
                 if (success) {
                     // タイトルを更新
                     if (result.title) {
@@ -135,7 +137,7 @@ export class URLParamsUtil {
      */
     static updateApproximatorSettingsFromParams(curveManager) {
         if (!curveManager) return;
-        
+
         // snapパラメータをチェック
         if (this.hasParameter('snap')) {
             curveManager.setApproximatorSettings({

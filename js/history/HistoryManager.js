@@ -509,7 +509,7 @@ export class HistoryManager {
                     );
                 }
                 break;
-                
+
             case 'moveCurve':
                 // delta-only undo (no re-approximation)
                 if (action.id === undefined) break;

@@ -333,7 +333,7 @@ export const EquationBuilder = {
         const yShift = formatSigned(-cy, decimals);
         const radiusText = formatFixed(radius, decimals);
         const latex = `(x ${xShift})^2 + (y ${yShift})^2 = ${radiusText}^2`;
-    const parameterRange = { symbol: "t", start: "0", end: "2\\pi" };
+        const parameterRange = { symbol: "t", start: "0", end: "2\\pi" };
         return finalizeEquation({
             type: "circle",
             latex,
@@ -355,7 +355,7 @@ export const EquationBuilder = {
 
         const cxText = formatFixed(cx, decimals);
         const cyText = formatFixed(cy, decimals);
-    const parameterRange = { symbol: "t", start: "0", end: "2\\pi" };
+        const parameterRange = { symbol: "t", start: "0", end: "2\\pi" };
 
         const xTerms = [];
         const yTerms = [];
@@ -496,9 +496,9 @@ export const EquationBuilder = {
             Number.isFinite(endAngle) ? endAngle : Math.PI * 2,
             decimals
         );
-    const asciiParameter = parameterRange.symbol.replace(/\\/g, "") || "t";
-    const latex = `\\left(${radiusText}\\cos ${parameterRange.symbol} + ${cxText}, ${radiusText}\\sin ${parameterRange.symbol} + ${cyText}\\right)`;
-    const formula = `(${radiusText} * cos(${asciiParameter}) + ${cxText}, ${radiusText} * sin(${asciiParameter}) + ${cyText})`;
+        const asciiParameter = parameterRange.symbol.replace(/\\/g, "") || "t";
+        const latex = `\\left(${radiusText}\\cos ${parameterRange.symbol} + ${cxText}, ${radiusText}\\sin ${parameterRange.symbol} + ${cyText}\\right)`;
+        const formula = `(${radiusText} * cos(${asciiParameter}) + ${cxText}, ${radiusText} * sin(${asciiParameter}) + ${cyText})`;
         return finalizeEquation({
             type: "arc",
             latex,

@@ -61,7 +61,7 @@ export class AdvancedModeManager {
 
         // 可能であれば chrome.storage に保存（失敗しても続行）
         if (typeof chrome !== 'undefined' && chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.set({ advancedMode: enabled }).catch(() => {});
+            chrome.storage.local.set({ advancedMode: enabled }).catch(() => { });
         }
 
         // localStorage にも保存

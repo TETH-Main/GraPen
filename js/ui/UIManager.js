@@ -34,8 +34,8 @@ export class UIManager {
         // GraphCalculatorUtilsの初期化
         this.graphUtils = new GraphCalculatorUtils(graphCalculator);
 
-    // ApproximatorManagerの初期化
-    this.ApproximatorManager = new ApproximatorManager(curveManager, this.languageManager);
+        // ApproximatorManagerの初期化
+        this.ApproximatorManager = new ApproximatorManager(curveManager, this.languageManager);
 
         // SettingsManagerの初期化
         this.settingsManager = new SettingsManager(graphCalculator, curveManager, historyManager);
@@ -70,8 +70,8 @@ export class UIManager {
         // CurveManagerにUIManagerへの参照を渡す
         this.curveManager.setUIManager(this);
 
-    this.isErasing = false;
-    this._erasedDuringGesture = new Set();
+        this.isErasing = false;
+        this._erasedDuringGesture = new Set();
 
         this.advancedModeManager = new AdvancedModeManager();
 
@@ -154,7 +154,7 @@ export class UIManager {
         this._approximationAlertOverlay.addEventListener('click', () => this.hideApproximationAlert());
 
         // 拡張モードボタン
-            const advancedModeBtn = this._approximationAlertModal.querySelector('#approx-advanced-mode-btn');
+        const advancedModeBtn = this._approximationAlertModal.querySelector('#approx-advanced-mode-btn');
         if (advancedModeBtn) {
             advancedModeBtn.addEventListener('click', () => {
                 // 永続化（互換キーも合わせて書く）
@@ -249,7 +249,7 @@ export class UIManager {
                 const width = Math.max(20, btnRect.width - 12);
                 tabContainer.style.setProperty('--indicator-left', `${left}px`);
                 tabContainer.style.setProperty('--indicator-width', `${width}px`);
-            } catch (err) {}
+            } catch (err) { }
         };
 
         this._sidebarTabsInitialized = true;
@@ -338,7 +338,7 @@ export class UIManager {
                 button.classList.toggle('active', isActive);
             });
 
-                // スライディングインジケーターの位置を更新（存在する場合）
+            // スライディングインジケーターの位置を更新（存在する場合）
             try { updateIndicator(); } catch (e) { /* noop */ }
 
             if (focus) {
@@ -967,10 +967,10 @@ export class UIManager {
      * ツールバーイベントの設定
      */
     setupToolbarEvents() {
-    d3.select('#pen-tool').on('click', () => this.setActiveTool('pen'));
-    d3.select('#cursor-tool').on('click', () => this.setActiveTool('cursor'));
-    d3.select('#home-button').on('click', () => this.graphUtils.resetView());
-    d3.select('#eraser-tool').on('click', () => this.setActiveTool('eraser'));
+        d3.select('#pen-tool').on('click', () => this.setActiveTool('pen'));
+        d3.select('#cursor-tool').on('click', () => this.setActiveTool('cursor'));
+        d3.select('#home-button').on('click', () => this.graphUtils.resetView());
+        d3.select('#eraser-tool').on('click', () => this.setActiveTool('eraser'));
 
         // 拡大縮小ボタンのイベントリスナーを追加
         d3.select('#zoom-in-button').on('click', () => this.zoomIn());
@@ -1090,7 +1090,7 @@ export class UIManager {
 
         // グラフ計算機があれば、ツールに応じてズームとキャンバス操作を切り替え
         if (this.graphCalculator) {
-                if (tool === 'pen') {
+            if (tool === 'pen') {
                 // ペンツールの場合は描画を優先するためキャンバス移動を無効化
                 this.graphCalculator.enableZoom(true);
                 this.graphCalculator.enableCanvas(false);

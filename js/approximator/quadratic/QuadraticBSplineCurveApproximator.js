@@ -242,7 +242,7 @@ export class QuadraticBSplineCurveApproximator {
 
         return pathCommands.join(" ");
     }
-    
+
     /**
      * 点列の単調性をチェック（x座標についてほぼ単調増加・減少かどうか）
      * @param {Array} points - ドメイン座標系の点列 [[x1,y1], [x2,y2], ...]

@@ -27,7 +27,7 @@ export class CurveManager {
         this.g = null;
         this.emphasisPath = null;
         this.emphasisGraphCurveId = null; // GraphCalculator内の強調表示用曲線ID
-    this.emphasisTargetCurveId = null; // 強調表示中の元曲線ID
+        this.emphasisTargetCurveId = null; // 強調表示中の元曲線ID
         this.uiManager = null;
         this.languageManager = languageManager;
 
@@ -37,10 +37,10 @@ export class CurveManager {
         this.quadraticApproximator = new QuadraticBSplineCurveApproximator(this.settings);
         this.linearApproximator = new LinearFunctionApproximator(this.settings);
         this.piecewiseLinearApproximator = new PiecewiseLinearApproximator(this.settings);
-    this.singleQuadraticApproximator = new SingleQuadraticBezierApproximator(this.settings);
-    this.singleCircleApproximator = new SingleCircleApproximator(this.settings);
-    this.quadraticBezierChainApproximator = new QuadraticBezierChainApproximator(this.settings);
-    this.selectiveCurveApproximator = new SelectiveCurveApproximator(this.settings);
+        this.singleQuadraticApproximator = new SingleQuadraticBezierApproximator(this.settings);
+        this.singleCircleApproximator = new SingleCircleApproximator(this.settings);
+        this.quadraticBezierChainApproximator = new QuadraticBezierChainApproximator(this.settings);
+        this.selectiveCurveApproximator = new SelectiveCurveApproximator(this.settings);
 
         this._approximatorSettingsModel = createApproxSettingsModel();
         this.approximatorSettings = resolveApproxSettings(this._approximatorSettingsModel);
@@ -373,7 +373,7 @@ export class CurveManager {
                     <i class="material-symbols-rounded none-event">close_small</i>
                 </button>
             `);
-            
+
 
         // 曲線の詳細部分を追加
         const curveDetails = curveItem.append('div')
@@ -603,7 +603,7 @@ export class CurveManager {
             if (jumpBtn) {
                 event.stopPropagation();
                 const cid = Number(jumpBtn.getAttribute('data-id'));
-                    window.GraPen.jumpToCurve(cid, { animate: true });
+                window.GraPen.jumpToCurve(cid, { animate: true });
                 return;
             }
 
@@ -612,7 +612,7 @@ export class CurveManager {
             if (detailsBtn) {
                 event.stopPropagation();
                 const did = Number(detailsBtn.getAttribute('data-id'));
-                    this.toggleDetailVisibility(did);
+                this.toggleDetailVisibility(did);
                 return;
             }
 
@@ -621,7 +621,7 @@ export class CurveManager {
             if (delBtn) {
                 event.stopPropagation();
                 const did = Number(delBtn.getAttribute('data-id'));
-                    this.deleteCurve({ target: { dataset: { id: did } } });
+                this.deleteCurve({ target: { dataset: { id: did } } });
                 return;
             }
 
@@ -1943,11 +1943,11 @@ export class CurveManager {
                 color: color || (approximatorSettings && approximatorSettings.color) || '#000',
                 size: size || (approximatorSettings && approximatorSettings.size) || 1,
                 isHidden: false,
-                    isDetailShown: true,
-                    // 曲線追加直後は移動可能（locked: false）
-                    locked: false,
-                    // 節点表示フラグ（曲線ごとに保持）
-                    showKnots: (approximatorSettings && typeof approximatorSettings.showKnotsDefault !== 'undefined') ? !!approximatorSettings.showKnotsDefault : true,
+                isDetailShown: true,
+                // 曲線追加直後は移動可能（locked: false）
+                locked: false,
+                // 節点表示フラグ（曲線ごとに保持）
+                showKnots: (approximatorSettings && typeof approximatorSettings.showKnotsDefault !== 'undefined') ? !!approximatorSettings.showKnotsDefault : true,
                 graphCurve: null,
                 latexEquations: [],
                 preKnots: [],
@@ -2194,7 +2194,7 @@ export class CurveManager {
             result.curve = graphCurve;
             return result;
         }
-        
+
         // 単調増加でないが拡張モードの場合は特別な処理
         if (useAdvancedMode) {
             try {
@@ -2276,9 +2276,9 @@ export class CurveManager {
         this.updateKnotCountLabel(labelElement);
 
         // 現在の数（デフォルトは近似設定から取得）
-    const currentKnotCount = curve.knotCount || curve.latexEquations.length + 1 || this.approximatorSettings.maxKnots;
-    const minKnots = curve.minKnots || 2;
-    const maxKnots = curve.maxKnots || 10;
+        const currentKnotCount = curve.knotCount || curve.latexEquations.length + 1 || this.approximatorSettings.maxKnots;
+        const minKnots = curve.minKnots || 2;
+        const maxKnots = curve.maxKnots || 10;
 
         // 現在の値を表示
         const valueDisplay = sliderWrapper.append('span')
@@ -2458,7 +2458,7 @@ export class CurveManager {
                     const hasStart = equations[0] && equations[0].domain;
                     const expected = hasStart ? (equations.length + 1) : 0;
                     if (markers && markers.length === expected && hasStart) {
-                        const fmt = (v) => String(v).replace(/\.(00|0)$/,'');
+                        const fmt = (v) => String(v).replace(/\.(00|0)$/, '');
                         const startText = fmt(equations[0].domain.start);
                         if (markers[0].innerText !== startText) {
                             // スタイルを残すためinnerHTMLで更新
@@ -2480,7 +2480,7 @@ export class CurveManager {
             // 構造が無い、または一致しない場合は最小限の再構築
             let html = '<div class="equations-timeline">';
             if (typeof equations[0] === 'object' && equations[0].domain) {
-                html += `<div class=\"domain-marker\">${equations[0].domain.start.replace(/\.(00|0)$/,'')}</div>`;
+                html += `<div class=\"domain-marker\">${equations[0].domain.start.replace(/\.(00|0)$/, '')}</div>`;
             }
             equations.forEach((eq, i) => {
                 if (typeof eq === 'object' && (eq.formula || eq.latex) && eq.domain) {
@@ -2493,7 +2493,7 @@ export class CurveManager {
                 <div class=\"katex-display\"></div> 
               </div> 
             </div> 
-            <div class=\"domain-marker\">${eq.domain.end.replace(/\.(00|0)$/,'')}</div>`;
+            <div class=\"domain-marker\">${eq.domain.end.replace(/\.(00|0)$/, '')}</div>`;
                 }
             });
             html += '</div>';

@@ -139,6 +139,7 @@
     align-content: start;
     box-sizing: border-box;
 }
+
 .menu-graph-list {
     /* make the saved-graphs display as a grid of cards: 3 columns */
     flex: 1;
@@ -200,8 +201,9 @@
     right: 8px;
     bottom: 8px;
     font-size: 11px;
-    color: #ffffff; /* stronger contrast on darker overlay */
-    background: rgba(0,0,0,0.56);
+    color: #ffffff;
+    /* stronger contrast on darker overlay */
+    background: rgba(0, 0, 0, 0.56);
     padding: 2px 6px;
     border-radius: 6px;
 }
@@ -310,7 +312,7 @@
     justify-content: center;
     background: #ffffff;
     color: #000;
-    border: 1px solid rgba(0,0,0,0.65);
+    border: 1px solid rgba(0, 0, 0, 0.65);
     cursor: pointer;
     transition: color 0.12s ease, transform 0.08s ease, border-color 0.12s ease;
     z-index: 4;
@@ -330,12 +332,12 @@
 .graph-delete-btn:hover,
 .graph-delete-btn:focus {
     color: #ff3b30;
-    border-color: rgba(255,59,48,0.9);
+    border-color: rgba(255, 59, 48, 0.9);
 }
 
 .graph-delete-btn:focus-visible {
     box-shadow: none;
-    border-color: rgba(255,59,48,1);
+    border-color: rgba(255, 59, 48, 1);
 }
 
 @media (max-width: 520px) {
@@ -471,6 +473,7 @@
     .menu-graph-list {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
     .graph-thumb {
         aspect-ratio: 1 / 1;
         height: auto;

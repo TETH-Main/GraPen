@@ -41,12 +41,12 @@ export class PenToolManager {
         // 現在のパレット（デフォルト色からスタート）
         this.colorPalette = [...this.defaultColors];
 
-    // 削除関連の状態
-    this.activeDeletePreset = null;
-    // 表示された削除ボタンを自動で非表示にするタイマー（長めのタイムアウト）
-    this.deleteRevealTimer = null;
-    // タップ直後に即時表示されるのを防ぐための短い遅延タイマー（誤って同時に削除されるのを防止）
-    this.deleteShowDelayTimer = null;
+        // 削除関連の状態
+        this.activeDeletePreset = null;
+        // 表示された削除ボタンを自動で非表示にするタイマー（長めのタイムアウト）
+        this.deleteRevealTimer = null;
+        // タップ直後に即時表示されるのを防ぐための短い遅延タイマー（誤って同時に削除されるのを防止）
+        this.deleteShowDelayTimer = null;
         this.coarsePointerMatcher = (typeof window !== 'undefined' && window.matchMedia)
             ? window.matchMedia('(hover: none)')
             : null;
@@ -58,9 +58,9 @@ export class PenToolManager {
         this.languageManager = languageManager;
         this.alertModal = new AlertModal(languageManager);
 
-    // サイドバータブ制御用のコールバック
-    this.sidebarTabActivator = null;
-    this._suppressSidebarTabActivation = false;
+        // サイドバータブ制御用のコールバック
+        this.sidebarTabActivator = null;
+        this._suppressSidebarTabActivation = false;
 
         // ローカルストレージからカスタム色をロード
         if (!this.settings.currentColor) {
@@ -159,17 +159,17 @@ export class PenToolManager {
 
         this.updateColorDisplayMini(this.settings.currentColor || '#000000');
         const initialColor = this.settings.currentColor || '#000000';
-        
+
         // 初期色からHSV値を設定
         this.setColorFromHex(initialColor);
-        
+
         // キャンバスを初期描画
         if (this.hueRingCanvas && this.svSquareCanvas) {
             this.renderHueRing();
             this.renderSVSquare();
             requestAnimationFrame(() => this.updateCursorPositions());
         }
-        
+
         this.updateSizeDisplayMini(this.settings.currentSize || 8);
     }
 
@@ -741,17 +741,17 @@ export class PenToolManager {
                     }
                 })
                 .on('change.penTool', () => {
-                let hex = this.hexInput.value;
-                if (!hex.startsWith('#')) {
-                    hex = '#' + hex;
-                }
-                if (/^#[0-9A-F]{6}$/i.test(hex)) {
-                    this.setColorFromHex(hex);
-                    this.applyColor();
-                } else {
-                    this.hexInput.value = this.rgbToHex(this.hsvToRgb(this.hsv.h, this.hsv.s, this.hsv.v));
-                }
-            });
+                    let hex = this.hexInput.value;
+                    if (!hex.startsWith('#')) {
+                        hex = '#' + hex;
+                    }
+                    if (/^#[0-9A-F]{6}$/i.test(hex)) {
+                        this.setColorFromHex(hex);
+                        this.applyColor();
+                    } else {
+                        this.hexInput.value = this.rgbToHex(this.hsvToRgb(this.hsv.h, this.hsv.s, this.hsv.v));
+                    }
+                });
         }
 
         d3.select(document).on('pointerdown.penToolPanel', (e) => {
@@ -1151,10 +1151,10 @@ export class PenToolManager {
             const angle = (i / segments) * 2 * Math.PI - Math.PI / 2;
             const nextAngle = ((i + 1) / segments) * 2 * Math.PI - Math.PI / 2;
             const hue = (i / segments) * 360;
-            
+
             const rgb = this.hsvToRgb(hue, 1, 1);
             ctx.fillStyle = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-            
+
             ctx.beginPath();
             ctx.arc(centerX, centerY, outerRadius, angle, nextAngle);
             ctx.arc(centerX, centerY, innerRadius, nextAngle, angle, true);
@@ -1184,10 +1184,10 @@ export class PenToolManager {
             for (let x = 0; x < width; x++) {
                 const saturation = x / (width - 1);
                 const value = 1 - (y / (height - 1));
-                
+
                 const rgb = this.hsvToRgb(this.hsv.h, saturation, value);
                 const index = (y * width + x) * 4;
-                
+
                 data[index] = rgb.r;     // Red
                 data[index + 1] = rgb.g; // Green
                 data[index + 2] = rgb.b; // Blue
@@ -1247,7 +1247,7 @@ export class PenToolManager {
 
         this.svSquareCursor.style.left = `${x}px`;
         this.svSquareCursor.style.top = `${y}px`;
-        
+
         const svValue = Math.round((this.hsv.s + this.hsv.v) * 50);
         this.svSquareCursor.setAttribute('aria-valuenow', svValue);
     }
