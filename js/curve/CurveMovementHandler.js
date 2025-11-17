@@ -30,6 +30,7 @@ export class CurveMovementHandler {
         this.handleMouseDown = this.handleMouseDown.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
         this.handleMouseUp = this.handleMouseUp.bind(this);
+        this.handlePointerCancel = this.handlePointerCancel.bind(this);
 
         // UIManager参照（後で設定される）
         this.uiManager = null;
@@ -102,6 +103,7 @@ export class CurveMovementHandler {
         d3.select(svg).on('pointerdown.curveMove', this.handleMouseDown);
         d3.select(document).on('pointermove.curveMove', this.handleMouseMove);
         d3.select(document).on('pointerup.curveMove', this.handleMouseUp);
+        d3.select(document).on('pointercancel.curveMove', this.handlePointerCancel);
 
         const paths = svg.querySelectorAll('path');
         paths.forEach(path => {
@@ -174,6 +176,7 @@ export class CurveMovementHandler {
         d3.select(svg).on('pointerdown.curveMove', null);
         d3.select(document).on('pointermove.curveMove', null);
         d3.select(document).on('pointerup.curveMove', null);
+        d3.select(document).on('pointercancel.curveMove', null);
 
         this.setActiveTool(this.dragState.penToolState);
 
@@ -252,6 +255,10 @@ export class CurveMovementHandler {
         const graphCalculator = this.curveManager.graphCalculator;
         if (!graphCalculator) return;
 
+        if (event && event.cancelable) {
+            event.preventDefault();
+        }
+
         // マウスのSVG座標を取得
         const svg = graphCalculator.getSvg();
         const svgRect = svg.getBoundingClientRect();
@@ -303,6 +310,20 @@ export class CurveMovementHandler {
     }
 
     /**
+     * ポインターキャンセルイベントハンドラ
+     * @param {PointerEvent} event
+     */
+    handlePointerCancel(event) {
+        if (!this.dragState.isDragging) return;
+
+        if (event && event.cancelable) {
+            event.preventDefault();
+        }
+
+        this.endDrag(true);
+    }
+
+    /**
      * ドラッグ開始
      * @param {MouseEvent} event マウスイベント
      * @param {number} curveId 曲線ID
@@ -318,6 +339,10 @@ export class CurveMovementHandler {
         // 個別ロックが有効な場合は移動を開始しない
         if (curve.locked) {
             return;
+        }
+
+        if (event && event.cancelable) {
+            event.preventDefault();
         }
 
         // ドラッグ開始時は既に選択されている場合は選択状態を維持する

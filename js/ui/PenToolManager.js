@@ -62,6 +62,9 @@ export class PenToolManager {
         this.sidebarTabActivator = null;
         this._suppressSidebarTabActivation = false;
 
+        // 現在アクティブなポインタ（Hue/SVドラッグ）を追跡
+        this.activePointer = null;
+
         // ローカルストレージからカスタム色をロード
         if (!this.settings.currentColor) {
             this.settings.currentColor = defaultColor;
@@ -649,6 +652,13 @@ export class PenToolManager {
                 }
                 if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
+                if (!this.initialColor) {
+                    this.beginColorChange();
+                }
+
+                this._clearActivePointer();
+                this._setActivePointer('hue', e);
+
                 // pointer capture を試みる（連続的に pointermove を受け取るため）
                 if (e && e.pointerId && e.target && typeof e.target.setPointerCapture === 'function') {
                     e.target.setPointerCapture(e.pointerId);
@@ -657,29 +667,34 @@ export class PenToolManager {
                 this.updateHueFromPointer(e);
                 this.applyColor();
                 const moveHandler = (moveEvent) => {
+                    if (!this._isEventFromActivePointer('hue', moveEvent)) return;
                     if (moveEvent && typeof moveEvent.preventDefault === 'function') moveEvent.preventDefault();
                     this.updateHueFromPointer(moveEvent);
                     this.applyColor();
                 };
                 const upHandler = (upEvent) => {
+                    if (!this._isEventFromActivePointer('hue', upEvent)) return;
                     if (e && e.pointerId && e.target && typeof e.target.releasePointerCapture === 'function') {
                         e.target.releasePointerCapture(e.pointerId);
                     }
 
                     // finalize color change for history when dragging ends
                     this.finishColorChange();
+                    this._clearActivePointer('hue');
 
                     d3.select(document)
                         .on('pointermove.penToolHueDrag', null)
                         .on('pointerup.penToolHueDrag', null)
                         .on('touchmove.penToolHueDrag', null)
                         .on('touchend.penToolHueDrag', null)
-                        .on('touchcancel.penToolHueDrag', null);
+                        .on('touchcancel.penToolHueDrag', null)
+                        .on('pointercancel.penToolHueDrag', null);
                 };
 
                 d3.select(document)
                     .on('pointermove.penToolHueDrag', moveHandler)
                     .on('pointerup.penToolHueDrag', upHandler)
+                    .on('pointercancel.penToolHueDrag', upHandler)
                     .on('touchmove.penToolHueDrag', moveHandler)
                     .on('touchend.penToolHueDrag', upHandler)
                     .on('touchcancel.penToolHueDrag', upHandler);
@@ -695,6 +710,13 @@ export class PenToolManager {
                 }
                 if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
+                if (!this.initialColor) {
+                    this.beginColorChange();
+                }
+
+                this._clearActivePointer();
+                this._setActivePointer('sv', e);
+
                 // pointer capture を試みる
                 if (e && e.pointerId && e.target && typeof e.target.setPointerCapture === 'function') {
                     e.target.setPointerCapture(e.pointerId);
@@ -703,29 +725,34 @@ export class PenToolManager {
                 this.updateSVFromPointer(e);
                 this.applyColor();
                 const moveHandler = (moveEvent) => {
+                    if (!this._isEventFromActivePointer('sv', moveEvent)) return;
                     if (moveEvent && typeof moveEvent.preventDefault === 'function') moveEvent.preventDefault();
                     this.updateSVFromPointer(moveEvent);
                     this.applyColor();
                 };
                 const upHandler = (upEvent) => {
+                    if (!this._isEventFromActivePointer('sv', upEvent)) return;
                     if (e && e.pointerId && e.target && typeof e.target.releasePointerCapture === 'function') {
                         e.target.releasePointerCapture(e.pointerId);
                     }
 
                     // finalize color change for history when dragging ends
                     this.finishColorChange();
+                    this._clearActivePointer('sv');
 
                     d3.select(document)
                         .on('pointermove.penToolSVDrag', null)
                         .on('pointerup.penToolSVDrag', null)
                         .on('touchmove.penToolSVDrag', null)
                         .on('touchend.penToolSVDrag', null)
-                        .on('touchcancel.penToolSVDrag', null);
+                        .on('touchcancel.penToolSVDrag', null)
+                        .on('pointercancel.penToolSVDrag', null);
                 };
 
                 d3.select(document)
                     .on('pointermove.penToolSVDrag', moveHandler)
                     .on('pointerup.penToolSVDrag', upHandler)
+                    .on('pointercancel.penToolSVDrag', upHandler)
                     .on('touchmove.penToolSVDrag', moveHandler)
                     .on('touchend.penToolSVDrag', upHandler)
                     .on('touchcancel.penToolSVDrag', upHandler);
@@ -926,6 +953,7 @@ export class PenToolManager {
             this._suppressSidebarTabActivation = false;
         }
 
+        this._clearActivePointer();
         this.clearDeleteRevealState();
 
         // 初期色・サイズをリセット
@@ -1250,6 +1278,67 @@ export class PenToolManager {
 
         const svValue = Math.round((this.hsv.s + this.hsv.v) * 50);
         this.svSquareCursor.setAttribute('aria-valuenow', svValue);
+    }
+
+    _extractPrimaryTouch(event) {
+        if (!event) return null;
+        const pickFirst = (list) => {
+            if (!list || typeof list.length !== 'number' || list.length === 0) return null;
+            return list[0];
+        };
+        return pickFirst(event.touches) ||
+            pickFirst(event.changedTouches) ||
+            this._extractPrimaryTouch(event.sourceEvent || event.srcEvent || null);
+    }
+
+    _setActivePointer(type, event) {
+        const pointerId = (event && typeof event.pointerId === 'number') ? event.pointerId : null;
+        const touch = this._extractPrimaryTouch(event);
+        const touchId = touch && typeof touch.identifier === 'number' ? touch.identifier : null;
+        this.activePointer = { type, pointerId, touchId };
+    }
+
+    _isEventFromActivePointer(type, event) {
+        if (!this.activePointer || this.activePointer.type !== type) {
+            return false;
+        }
+
+        const { pointerId, touchId } = this.activePointer;
+
+        if (event && typeof event.pointerId === 'number') {
+            return pointerId == null || event.pointerId === pointerId;
+        }
+
+        const matchesTouchList = (list) => {
+            if (touchId == null || !list || typeof list.length !== 'number') return false;
+            for (let i = 0; i < list.length; i++) {
+                const touch = list[i];
+                if (touch && touch.identifier === touchId) return true;
+            }
+            return false;
+        };
+
+        if (matchesTouchList(event && event.touches)) return true;
+        if (matchesTouchList(event && event.changedTouches)) return true;
+
+        const nested = event && (event.sourceEvent || event.srcEvent);
+        if (nested && nested !== event) {
+            return this._isEventFromActivePointer(type, nested);
+        }
+
+        if (pointerId == null && touchId == null) {
+            // フォールバック（古いブラウザなど）: 識別子が取得できない場合はアクティブ扱い
+            return true;
+        }
+
+        return false;
+    }
+
+    _clearActivePointer(type) {
+        if (!this.activePointer) return;
+        if (!type || this.activePointer.type === type) {
+            this.activePointer = null;
+        }
     }
 
     // イベントからクライアント座標を取得（タッチ/ポインタ両対応）

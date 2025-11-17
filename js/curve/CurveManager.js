@@ -516,32 +516,65 @@ export class CurveManager {
                 return;
             }
 
-            event.preventDefault();
             const curveItemElem = event.target.closest('.curve-item');
+            if (!curveItemElem) {
+                return;
+            }
+
+            const pointerType = event.pointerType || 'mouse';
+            const isTouchLike = pointerType === 'touch' || pointerType === 'pen';
+            const captureTarget = event.currentTarget;
+            const pointerId = event.pointerId;
+
             const startPos = this._getEventPosition(event);
             const startX = startPos.x;
             const startY = startPos.y;
+            const DRAG_THRESHOLD = 5;
+
             let moved = false;
             let rafId = null;
+            let allowNativeScroll = false;
+            let pointerCaptured = false;
+            let dragReady = !isTouchLike;
+            let dragIntentTimer = null;
 
-            // iOS向けのスクロール防止 - タッチ開始時に呼び出し
-            if (event.pointerType === 'touch') {
-                document.body.style.overflow = 'hidden';
-                document.documentElement.style.overflow = 'hidden';
-                document.addEventListener('touchmove', this._preventDefaultTouch, { passive: false });
+            if (!dragReady) {
+                dragIntentTimer = window.setTimeout(() => {
+                    dragReady = true;
+                    dragIntentTimer = null;
+                }, 180);
             }
 
-            // ポインタキャプチャを使用して、ポインタイベントを要素に固定
-            try {
-                event.target.setPointerCapture(event.pointerId);
-            } catch (e) {
-                console.warn('ポインタキャプチャに失敗:', e);
-            }
+            const clearDragIntentTimer = () => {
+                if (dragIntentTimer) {
+                    clearTimeout(dragIntentTimer);
+                    dragIntentTimer = null;
+                }
+            };
 
-            // D3を使わず直接DOMイベントを登録（より信頼性が高い）
+            const capturePointer = () => {
+                if (!pointerCaptured && captureTarget && captureTarget.setPointerCapture) {
+                    try {
+                        captureTarget.setPointerCapture(pointerId);
+                        pointerCaptured = true;
+                    } catch (e) {
+                        console.warn('ポインタキャプチャに失敗:', e);
+                    }
+                }
+            };
+
+            const releasePointer = () => {
+                if (pointerCaptured && captureTarget && captureTarget.releasePointerCapture) {
+                    try {
+                        captureTarget.releasePointerCapture(pointerId);
+                    } catch (e) { }
+                    pointerCaptured = false;
+                }
+            };
+
             const moveHandler = (moveEvent) => {
-                if (moveEvent.cancelable) {
-                    moveEvent.preventDefault();
+                if (allowNativeScroll) {
+                    return;
                 }
 
                 if (rafId) return;
@@ -551,13 +584,38 @@ export class CurveManager {
                     const pos = this._getEventPosition(moveEvent);
                     const dx = pos.x - startX;
                     const dy = pos.y - startY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (!moved && Math.sqrt(dx * dx + dy * dy) > 5) {
-                        moved = true;
-                        this._startCurveDrag(moveEvent, id, curveItemElem);
+                    if (!dragReady) {
+                        if (distance > DRAG_THRESHOLD) {
+                            allowNativeScroll = true;
+                            clearDragIntentTimer();
+                        }
+                        return;
                     }
 
-                    if (moved && this._dragDummy) {
+                    if (!moved) {
+                        if (distance <= DRAG_THRESHOLD) {
+                            return;
+                        }
+
+                        moved = true;
+                        clearDragIntentTimer();
+                        capturePointer();
+
+                        if (moveEvent.cancelable) {
+                            moveEvent.preventDefault();
+                        }
+
+                        this._startCurveDrag(moveEvent, id, curveItemElem);
+                        return;
+                    }
+
+                    if (moveEvent.cancelable) {
+                        moveEvent.preventDefault();
+                    }
+
+                    if (this._dragDummy) {
                         this._dragDummy.style.left = `${pos.x - this._dragOffsetX}px`;
                         this._dragDummy.style.top = `${pos.y - this._dragOffsetY}px`;
                         this._onDragMove(moveEvent);
@@ -566,6 +624,7 @@ export class CurveManager {
             };
 
             const upHandler = (upEvent) => {
+                clearDragIntentTimer();
                 this._cleanupTouchEvents();
 
                 if (rafId) {
@@ -573,15 +632,12 @@ export class CurveManager {
                     rafId = null;
                 }
 
-                // ポインタキャプチャを解放
-                try {
-                    event.target.releasePointerCapture(event.pointerId);
-                } catch (e) { }
+                releasePointer();
+                cleanupListeners();
 
-                // イベントリスナーをクリーンアップ
-                document.removeEventListener('pointermove', moveHandler, { capture: true });
-                document.removeEventListener('pointerup', upHandler, { capture: true });
-                document.removeEventListener('pointercancel', upHandler, { capture: true });
+                if (allowNativeScroll) {
+                    return;
+                }
 
                 if (!moved) {
                     this.selectCurve(d3.select(curveItemElem), id);
@@ -589,6 +645,12 @@ export class CurveManager {
                     this._onDragEnd(upEvent);
                 }
             };
+
+            function cleanupListeners() {
+                document.removeEventListener('pointermove', moveHandler, { capture: true });
+                document.removeEventListener('pointerup', upHandler, { capture: true });
+                document.removeEventListener('pointercancel', upHandler, { capture: true });
+            }
 
             // キャプチャフェーズでイベントを捕捉（優先度が高い）
             document.addEventListener('pointermove', moveHandler, { capture: true, passive: false });
@@ -658,7 +720,9 @@ export class CurveManager {
             this._handleGlobalDragEnd = this._handleGlobalDragEnd.bind(this);
 
             // グローバルイベントハンドラ - D3を使わずに直接DOMイベント
-            document.addEventListener('pointermove', this._handleGlobalDragMove, { passive: false });
+            // Use a passive listener by default so it doesn't block native scrolling.
+            // Per-drag handlers add non-passive/capture listeners when needed.
+            document.addEventListener('pointermove', this._handleGlobalDragMove, { passive: true });
             document.addEventListener('pointerup', this._handleGlobalDragEnd);
             document.addEventListener('pointercancel', this._handleGlobalDragEnd);
         }
@@ -708,6 +772,9 @@ export class CurveManager {
         // タッチ処理中フラグを設定
         if (event.pointerType === 'touch') {
             this._touchActive = true;
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            document.addEventListener('touchmove', this._preventDefaultTouch, { passive: false });
         }
 
         this._draggedCurveId = curveId;
