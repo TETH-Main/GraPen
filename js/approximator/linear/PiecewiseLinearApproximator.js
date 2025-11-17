@@ -1,5 +1,5 @@
 import { LinearFunctionApproximator } from './LinearFunctionApproximator.js';
-import { signedFixedString } from "../../util/NumberUtil.js";
+import { EquationBuilder } from "../../util/EquationBuilder.js";
 
 /**
  * 手書きの曲線をつなぎ合わせた直線（折れ線）で近似する
@@ -10,18 +10,23 @@ export class PiecewiseLinearApproximator {
      */
     constructor(options = {}) {
         this.options = {
-            linearityThreshold: 0.95, // 全体としての線形性の閾値
-            segmentLinearityThreshold: 0.93, // 各セグメントの線形性の閾値
+            linearityThreshold: 0.98, // 全体としての線形性の閾値
+            segmentLinearityThreshold: 0.95, // 各セグメントの線形性の閾値
             percentTolerance: 0.1, // 5%
             verticalSlopeThreshold: 10, // この値より大きい傾きは垂直と見なす
             horizontalSlopeThreshold: 0.1, // この値より小さい傾きは水平と見なす
+            snap: false,
+            quantizeControlAxis: false,
             ...options
         };
         this.linearApproximator = new LinearFunctionApproximator({
             linearityThreshold: this.options.segmentLinearityThreshold,
-            percentTolerance: this.options.percentTolerance
+            percentTolerance: this.options.percentTolerance,
+            snap: this.options.snap,
+            quantizeControlAxis: this.options.quantizeControlAxis
         });
         this.logPrefix = "[PiecewiseLinearApproximator]";
+        this.currentDomain = null;
     }
 
     /**
@@ -29,8 +34,11 @@ export class PiecewiseLinearApproximator {
      * @param {Array} points - グラフ座標系の点列 [[x, y], ...]
      * @returns {Object} - 判定・近似結果
      */
-    approximate(points) {
+    approximate(points, domain = null) {
+        this.currentDomain = domain;
+
         if (!points || !Array.isArray(points) || points.length < 2) {
+            this.currentDomain = null;
             return {
                 success: false,
                 message: "2点以上必要です",
@@ -49,6 +57,7 @@ export class PiecewiseLinearApproximator {
         const simplifiedPoints = this.simplifyPoints(points, this.options.linearityThreshold);
 
         if (simplifiedPoints.length < 2) {
+            this.currentDomain = null;
             return {
                 success: false,
                 message: "折れ線近似に失敗しました",
@@ -56,6 +65,7 @@ export class PiecewiseLinearApproximator {
                 latexEquations: []
             };
         } else if (simplifiedPoints.length === 2) {
+            this.currentDomain = null;
             return {
                 success: false,
                 message: "直線近似はできません",
@@ -72,7 +82,7 @@ export class PiecewiseLinearApproximator {
         // 各セグメントを処理（まず全てのセグメント情報を収集）
         for (let i = 0; i < simplifiedPoints.length - 1; i++) {
             const segmentPoints = this.getPointsInRange(points, simplifiedPoints[i], simplifiedPoints[i + 1]);
-            const segmentResult = this.processSegment(segmentPoints);
+            const segmentResult = this.processSegment(segmentPoints, domain);
 
             segments.push(segmentResult);
             linearityScores.push(segmentResult.linearity || 0);
@@ -142,7 +152,18 @@ export class PiecewiseLinearApproximator {
         // 平均線形性スコアを計算
         const averageLinearity = linearityScores.reduce((sum, score) => sum + score, 0) / linearityScores.length;
 
-        return {
+        // 節点調整後に数式を更新
+        this.updateEquationsAfterNodeAdjustment(segments, knots);
+
+        // LaTeX方程式を再収集（調整後の数式を使用）
+        const updatedLatexEquations = [];
+        for (const segment of segments) {
+            if (segment.latexEquation) {
+                updatedLatexEquations.push(segment.latexEquation);
+            }
+        }
+
+        const result = {
             success: averageLinearity >= this.options.segmentLinearityThreshold,
             type: "piecewiseLinear",
             originalPoints: points,
@@ -150,9 +171,12 @@ export class PiecewiseLinearApproximator {
             segments,
             knots,
             svgPath,
-            latexEquations,
+            latexEquations: updatedLatexEquations,
             averageLinearity
         };
+
+        this.currentDomain = null;
+        return result;
     }
 
     /**
@@ -270,7 +294,7 @@ export class PiecewiseLinearApproximator {
      * @param {Array} points - セグメント内の点
      * @returns {Object} セグメント情報
      */
-    processSegment(points) {
+    processSegment(points, domain) {
         if (points.length < 2) {
             return {
                 success: false,
@@ -284,7 +308,6 @@ export class PiecewiseLinearApproximator {
         let adjustedEndPoint = [...endPoint];
 
         // 線形近似を試みる
-        const linearResult = this.linearApproximator.approximate(points);
         const linearity = this.calculateLinearity(points, startPoint, endPoint);
 
         const xs = points.map(p => p[0]);
@@ -304,60 +327,84 @@ export class PiecewiseLinearApproximator {
 
         let type = "linear";
         let latexEquation = null;
+        const quantizeAxis = this.shouldQuantizeAxis();
 
         // 垂直線の判定（xがほぼ一定か、傾きが閾値より大きい）
         const allXEqual = xs.every(x => Math.abs(x - xs[0]) < xTol);
         if (allXEqual || Math.abs(slope) > this.options.verticalSlopeThreshold) {
             type = "vertical";
-            const xAvg = xMean.toFixed(3);
-            const yStart = Math.min(...ys).toFixed(3);
-            const yEnd = Math.max(...ys).toFixed(3);
-
-            // x座標を平均に調整
-            adjustedStartPoint[0] = parseFloat(xAvg);
-            adjustedEndPoint[0] = parseFloat(xAvg);
-
-            latexEquation = {
-                type: "vertical",
-                formula: `x = ${xAvg}`,
-                domain: { start: yStart, end: yEnd }
-            };
+            const xRounded = this.formatAxisValue(
+                quantizeAxis ? this.quantizeAxisValue(xMean, points, 'x', domain) : xMean
+            );
+            const startYRounded = this.formatAxisValue(
+                quantizeAxis ? this.quantizeAxisValue(startPoint[1], points, 'y', domain) : startPoint[1]
+            );
+            const endYRounded = this.formatAxisValue(
+                quantizeAxis ? this.quantizeAxisValue(endPoint[1], points, 'y', domain) : endPoint[1]
+            );
+            adjustedStartPoint[0] = xRounded;
+            adjustedStartPoint[1] = startYRounded;
+            adjustedEndPoint[0] = xRounded;
+            adjustedEndPoint[1] = endYRounded;
+            const yMin = Math.min(startYRounded, endYRounded);
+            const yMax = Math.max(startYRounded, endYRounded);
+            latexEquation = EquationBuilder.vertical({
+                x: xRounded,
+                yRange: [yMin, yMax],
+                meta: { linearity }
+            });
         }
         // 水平線の判定（yがほぼ一定か、傾きが閾値より小さい）
         else if (ys.every(y => Math.abs(y - ys[0]) < yTol) || Math.abs(slope) < this.options.horizontalSlopeThreshold) {
             type = "constant";
-            const yAvg = yMean.toFixed(3);
-            const xStart = Math.min(...xs).toFixed(3);
-            const xEnd = Math.max(...xs).toFixed(3);
-
-            // y座標を平均に調整
-            adjustedStartPoint[1] = parseFloat(yAvg);
-            adjustedEndPoint[1] = parseFloat(yAvg);
-
-            latexEquation = {
-                type: "constant",
-                formula: `y = ${yAvg}`,
-                domain: { start: xStart, end: xEnd }
-            };
+            const yRounded = this.formatAxisValue(
+                quantizeAxis ? this.quantizeAxisValue(yMean, points, 'y', domain) : yMean
+            );
+            const startXRounded = this.formatAxisValue(
+                quantizeAxis ? this.quantizeAxisValue(startPoint[0], points, 'x', domain) : startPoint[0]
+            );
+            const endXRounded = this.formatAxisValue(
+                quantizeAxis ? this.quantizeAxisValue(endPoint[0], points, 'x', domain) : endPoint[0]
+            );
+            adjustedStartPoint[0] = startXRounded;
+            adjustedStartPoint[1] = yRounded;
+            adjustedEndPoint[0] = endXRounded;
+            adjustedEndPoint[1] = yRounded;
+            const xMin = Math.min(startXRounded, endXRounded);
+            const xMax = Math.max(startXRounded, endXRounded);
+            latexEquation = EquationBuilder.horizontal({
+                y: yRounded,
+                xRange: [xMin, xMax],
+                meta: { linearity }
+            });
         }
         // 一般の直線
         else {
-            const slopeFormatted = slope.toFixed(3);
-            const interceptFormatted = Math.abs(intercept).toFixed(3);
-            // y = mx + b の形に変換
-            // `y = ${slopeFormatted}x ${intercept >= 0 ? '+ ' : '- '}${interceptFormatted}`,
-
-            // y = m(x - x1) + y1 の形に変換
-            const formula = `y = ${slopeFormatted}(x ${signedFixedString(-startPoint[0], 3)}) ${signedFixedString(startPoint[1], 3)}`;
-
-            const xStart = Math.min(startPoint[0], endPoint[0]).toFixed(3);
-            const xEnd = Math.max(startPoint[0], endPoint[0]).toFixed(3);
-
-            latexEquation = {
-                type: "linear",
-                formula: formula,
-                domain: { start: xStart, end: xEnd }
-            };
+            const startX = quantizeAxis
+                ? this.quantizeAxisValue(startPoint[0], points, 'x', domain)
+                : startPoint[0];
+            const startY = quantizeAxis
+                ? this.quantizeAxisValue(startPoint[1], points, 'y', domain)
+                : startPoint[1];
+            const endX = quantizeAxis
+                ? this.quantizeAxisValue(endPoint[0], points, 'x', domain)
+                : endPoint[0];
+            const endY = quantizeAxis
+                ? this.quantizeAxisValue(endPoint[1], points, 'y', domain)
+                : endPoint[1];
+            adjustedStartPoint = [
+                this.formatAxisValue(startX),
+                this.formatAxisValue(startY)
+            ];
+            adjustedEndPoint = [
+                this.formatAxisValue(endX),
+                this.formatAxisValue(endY)
+            ];
+            latexEquation = EquationBuilder.linearThroughPoints(adjustedStartPoint, adjustedEndPoint, {
+                decimals: 3,
+                meta: { linearity }
+            });
+            type = latexEquation.type;
         }
 
         return {
@@ -413,8 +460,28 @@ export class PiecewiseLinearApproximator {
         // LinearFunctionApproximator の設定も更新
         this.linearApproximator.setOptions({
             linearityThreshold: this.options.segmentLinearityThreshold,
-            percentTolerance: this.options.percentTolerance
+            percentTolerance: this.options.percentTolerance,
+            snap: this.options.snap,
+            quantizeControlAxis: this.options.quantizeControlAxis
         });
+    }
+
+    shouldQuantizeAxis() {
+        return !!(this.options.snap && this.options.quantizeControlAxis);
+    }
+
+    quantizeAxisValue(value, points, axis, domain) {
+        if (!this.shouldQuantizeAxis() || typeof this.linearApproximator.quantizeAxisValue !== 'function') {
+            return value;
+        }
+        return this.linearApproximator.quantizeAxisValue(value, points, axis, domain);
+    }
+
+    formatAxisValue(value) {
+        if (typeof this.linearApproximator.formatAxisValue === 'function') {
+            return this.linearApproximator.formatAxisValue(value);
+        }
+        return Number.isFinite(value) ? Number(value.toFixed(3)) : value;
     }
 
     /**
@@ -479,7 +546,24 @@ export class PiecewiseLinearApproximator {
             y = nextSegment.startPoint[1];
         }
 
-        return [x, y];
+        const referencePoints = [startPoint];
+        const nextStart = nextSegment?.adjustedStartPoint || nextSegment?.startPoint;
+        const nextEnd = nextSegment?.adjustedEndPoint || nextSegment?.endPoint;
+        if (Array.isArray(nextStart)) {
+            referencePoints.push(nextStart);
+        }
+        if (Array.isArray(nextEnd)) {
+            referencePoints.push(nextEnd);
+        }
+
+        const formattedX = this.formatAxisValue(x);
+        let processedY = y;
+        if (Array.isArray(referencePoints) && referencePoints.length) {
+            processedY = this.quantizeAxisValue(y, referencePoints, 'y', this.currentDomain);
+        }
+        processedY = this.formatAxisValue(processedY);
+
+        return [formattedX, processedY];
     }
 
     /**
@@ -548,6 +632,46 @@ export class PiecewiseLinearApproximator {
             x = nextSegment.startPoint[0];
         }
 
-        return [x, y];
+        const referencePoints = [startPoint];
+        const nextStart = nextSegment?.adjustedStartPoint || nextSegment?.startPoint;
+        const nextEnd = nextSegment?.adjustedEndPoint || nextSegment?.endPoint;
+        if (Array.isArray(nextStart)) {
+            referencePoints.push(nextStart);
+        }
+        if (Array.isArray(nextEnd)) {
+            referencePoints.push(nextEnd);
+        }
+
+        let processedX = x;
+        if (Array.isArray(referencePoints) && referencePoints.length) {
+            processedX = this.quantizeAxisValue(x, referencePoints, 'x', this.currentDomain);
+        }
+        processedX = this.formatAxisValue(processedX);
+        const formattedY = this.formatAxisValue(y);
+
+        return [processedX, formattedY];
+    }
+
+    /**
+     * 節点調整後に数式を更新する
+     * @param {Array} segments - セグメント配列
+     * @param {Array} knots - 調整された節点配列
+     */
+    updateEquationsAfterNodeAdjustment(segments, knots) {
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i];
+            const startPoint = knots[i];
+            const endPoint = knots[i + 1];
+
+            const equation = EquationBuilder.linearThroughPoints(startPoint, endPoint, {
+                decimals: 3,
+                meta: { linearity: segment.linearity }
+            });
+
+            if (equation) {
+                segment.latexEquation = equation;
+                segment.type = equation.type;
+            }
+        }
     }
 }

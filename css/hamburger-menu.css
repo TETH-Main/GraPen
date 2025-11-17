@@ -32,7 +32,6 @@
     z-index: 2002;
     transform: translateX(-100%);
     transition: transform 0.25s cubic-bezier(.77, 0, .18, 1);
-    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.18);
     display: flex;
     flex-direction: column;
 }
@@ -129,51 +128,91 @@
     letter-spacing: 0.05em;
 }
 
+/* Saved-graphs: display as grid cards (3 columns). */
 .menu-graph-list {
     flex: 1;
     overflow-y: auto;
-    padding: 18px 0 0 0;
-    display: flex;
-    flex-direction: column;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+    align-content: start;
+    box-sizing: border-box;
 }
 
+.menu-graph-list {
+    /* make the saved-graphs display as a grid of cards: 3 columns */
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-content: start;
+    box-sizing: border-box;
+}
+
+/* Card */
 .graph-block {
     display: flex;
-    align-items: center;
-    gap: 16px;
-    background: #292d36;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    background: linear-gradient(180deg, #3d4a53 0%, #333a40 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 10px;
-    margin: 0 18px;
+    width: 100%;
     padding: 14px 16px;
     cursor: pointer;
-    transition: background 0.18s, box-shadow 0.18s;
+    transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
     position: relative;
     outline: none;
+    box-sizing: border-box;
 }
 
 .graph-block:focus,
 .graph-block:hover {
-    background: #31343c;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    background: linear-gradient(180deg, #353f49 0%, #2f3942 100%);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    transform: translateY(-1px);
 }
 
 .graph-thumb {
-    width: 56px;
-    height: 56px;
+    width: 100%;
+    /* keep thumbnail strictly square */
+    aspect-ratio: 1 / 1;
     background: linear-gradient(135deg, #444 60%, #666 100%);
     border-radius: 8px;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
+    position: relative;
+    overflow: hidden;
+}
+
+.graph-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumb-hash {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    font-size: 11px;
+    color: #ffffff;
+    /* stronger contrast on darker overlay */
+    background: rgba(0, 0, 0, 0.56);
+    padding: 2px 6px;
+    border-radius: 6px;
 }
 
 .graph-info {
-    flex: 1;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px 6px 4px;
 }
 
 .graph-title {
@@ -262,24 +301,62 @@
 
 .graph-delete-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: none;
-    color: #ff3b30;
-    cursor: pointer;
-    border-radius: 50%;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 1;
-    transition: background-color 0.2s;
+    background: #ffffff;
+    color: #000;
+    border: 1px solid rgba(0, 0, 0, 0.65);
+    cursor: pointer;
+    transition: color 0.12s ease, transform 0.08s ease, border-color 0.12s ease;
+    z-index: 4;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.graph-delete-btn:hover {
-    background-color: rgba(255, 59, 48, 0.1);
+.graph-delete-btn i {
+    font-size: 18px;
+    line-height: 1;
+    display: block;
+}
+
+.graph-delete-btn:active {
+    transform: scale(0.96);
+}
+
+.graph-delete-btn:hover,
+.graph-delete-btn:focus {
+    color: #ff3b30;
+    border-color: rgba(255, 59, 48, 0.9);
+}
+
+.graph-delete-btn:focus-visible {
+    box-shadow: none;
+    border-color: rgba(255, 59, 48, 1);
+}
+
+@media (max-width: 520px) {
+    .graph-delete-btn {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+.sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .delete-confirm-modal {
@@ -386,55 +463,19 @@
     display: block;
 }
 
-/* モバイル対応 */
-/* @media (max-width: 610px) {
-    .hamburger-menu {
-        width: 95vw;
-        min-width: 180px;
-        max-width: 99vw;
-    }
+.graph-block-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
 
-    .menu-list a {
-        font-size: 1em;
-        padding: 12px 18px;
-    }
-
-    .hamburger-icon {
-        width: 24px;
-        height: 24px;
-    }
-
-    .hamburger-icon span {
-        width: 18px;
-        margin: 4px auto;
+@media (max-width: 610px) {
+    .menu-graph-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .graph-thumb {
-        width: 38px;
-        height: 38px;
+        aspect-ratio: 1 / 1;
+        height: auto;
     }
-
-    .graph-block {
-        gap: 10px;
-        padding: 10px 8px;
-        margin: 0 6px;
-    }
-        
-    .menu-footer {
-        min-height: 48px;
-        padding: 10px 0 12px 0;
-    }
-
-    .menu-github-link {
-        font-size: 1.5em;
-    }
-
-    .graph-delete-btn {
-        width: 24px;
-        height: 24px;
-    }
-    
-    .graph-delete-btn i {
-        font-size: 18px;
-    }
-} */
+}

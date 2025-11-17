@@ -34,8 +34,8 @@ export class UIManager {
         // GraphCalculatorUtilsの初期化
         this.graphUtils = new GraphCalculatorUtils(graphCalculator);
 
-        // ApprocimatorManagerの初期化
-        this.ApproximatorManager = new ApproximatorManager(curveManager);
+        // ApproximatorManagerの初期化
+        this.ApproximatorManager = new ApproximatorManager(curveManager, this.languageManager);
 
         // SettingsManagerの初期化
         this.settingsManager = new SettingsManager(graphCalculator, curveManager, historyManager);
@@ -70,8 +70,8 @@ export class UIManager {
         // CurveManagerにUIManagerへの参照を渡す
         this.curveManager.setUIManager(this);
 
-        // 初期状態でごみ箱ボタンの状態を更新
-        this.updateClearButtonState();
+        this.isErasing = false;
+        this._erasedDuringGesture = new Set();
 
         this.advancedModeManager = new AdvancedModeManager();
 
@@ -80,15 +80,14 @@ export class UIManager {
         this.settings.showApproximationErrorModal = true;
 
         // 近似不可能アラートの「今後このメッセージを表示しない」設定をlocalStorageから復元
-        const dontShow = localStorage.getItem('approximationAlertDontShow');
-        if (dontShow === 'true') {
-            this.settings.showApproximationErrorModal = false;
-        } else {
-            this.settings.showApproximationErrorModal = true;
-        }
+        // localStorageが例外を投げる環境は珍しいため簡潔にチェックする
+        this.settings.showApproximationErrorModal = (localStorage.getItem('approximationAlertDontShow') !== 'true');
 
         // 近似不可能アラートモーダルの初期化
         this.createApproximationAlertModal();
+
+        // モバイル向けサイドバータブのセットアップ
+        this.setupSidebarTabs();
     }
 
     /**
@@ -109,23 +108,20 @@ export class UIManager {
                     <button class="close-modal-btn" type="button">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p data-i18n="approximator_alert.message.1">曲線が一価関数ではありません。</p>
-                    <p data-i18n="approximator_alert.message.2">左から右へ一方向に描いてください。</p>
-                    <p data-i18n="approximator_alert.message.3">表現できない曲線例: 円やらせん状の曲線</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="modal-button advanced-mode-btn" disabled style="opacity: 0.5; cursor: not-allowed;" data-i18n="approximator_alert.advanced">拡張モードを有効にする</button>
-                    <button class="modal-button close-btn" data-i18n="approximator_alert.close">閉じる</button>
-                </div>
-                <div class="alert-info">
-                    <i class="material-symbols-rounded" style="color: #3498db;">info</i>
-                    <span style="font-size: 0.8em; color: #666;" data-i18n="approximator_alert.advanced_mode_message">拡張モードは現在開発中です。</span>
-                </div>
-                <div class="alert-info">
-                    <label class="dont-show-again">
-                        <input type="checkbox" id="dontShowAgain">
-                        <span data-i18n="approximator_alert.dont_show_again">今後このメッセージを表示しない</span>
-                    </label>
+                    <!-- 動画: 近似失敗例を自動ループで再生（音声なし） -->
+                    <video id="approximation-example-video" autoplay loop muted playsinline style="max-width:100%;height:auto;display:block;margin-bottom:10px;">
+                        <source src="img/approx_error_example.mp4" type="video/mp4">
+                    </video>
+                    <div class="modal-footer">
+                        <button id="approx-advanced-mode-btn" class="modal-button advanced-mode-btn" data-i18n="approximator_alert.advanced">拡張モードを有効にする</button>
+                        <button class="modal-button close-btn" data-i18n="approximator_alert.close">閉じる</button>
+                    </div>
+                    <div class="alert-info">
+                        <label class="dont-show-again">
+                            <input type="checkbox" id="dontShowAgain">
+                            <span data-i18n="approximator_alert.dont_show_again">今後このメッセージを表示しない</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         `;
@@ -144,6 +140,8 @@ export class UIManager {
         // チェックボックスの初期値をlocalStorageから復元
         const dontShow = localStorage.getItem('approximationAlertDontShow');
         checkbox.checked = (dontShow === 'true');
+        // 設定オブジェクトと同期（チェックがONなら表示しない）
+        this.settings.showApproximationErrorModal = !(checkbox.checked);
 
         // 閉じるボタン
         const closeBtn = this._approximationAlertModal.querySelector('.close-btn');
@@ -156,10 +154,27 @@ export class UIManager {
         this._approximationAlertOverlay.addEventListener('click', () => this.hideApproximationAlert());
 
         // 拡張モードボタン
-        const advancedModeBtn = this._approximationAlertModal.querySelector('.advanced-mode-btn');
+        const advancedModeBtn = this._approximationAlertModal.querySelector('#approx-advanced-mode-btn');
         if (advancedModeBtn) {
             advancedModeBtn.addEventListener('click', () => {
-                this.advancedModeManager.enableAdvancedMode(true);
+                // 永続化（互換キーも合わせて書く）
+                localStorage.setItem('grapen-advanced-mode', JSON.stringify(true));
+                localStorage.setItem('advancedMode', 'true');
+
+                // 利用可能なAPIに通知
+                if (this.advancedModeManager && typeof this.advancedModeManager.setAdvancedMode === 'function') {
+                    this.advancedModeManager.setAdvancedMode(true);
+                }
+                if (window.GraPen && typeof window.GraPen.setAdvancedMode === 'function') {
+                    window.GraPen.setAdvancedMode(true);
+                } else if (window.graPen && typeof window.graPen.setAdvancedMode === 'function') {
+                    window.graPen.setAdvancedMode(true);
+                }
+
+                // 互換イベントを発行
+                document.dispatchEvent(new CustomEvent('advancedModeStateChanged', { detail: { enabled: true } }));
+                document.dispatchEvent(new CustomEvent('advancedModeChanged', { detail: { enabled: true } }));
+
                 this.hideApproximationAlert();
             });
         }
@@ -176,6 +191,14 @@ export class UIManager {
      * @private
      */
     _showApproximationAlert() {
+        try {
+            const dontShow = localStorage.getItem('approximationAlertDontShow');
+            if (dontShow === 'true') return;
+        } catch (e) { /* ignore storage errors */ }
+
+        // settings で無効化されている場合も表示しない
+        if (this.settings && this.settings.showApproximationErrorModal === false) return;
+
         if (!this._approximationAlertModal || !this._approximationAlertOverlay) {
             this.createApproximationAlertModal();
         }
@@ -190,6 +213,247 @@ export class UIManager {
         if (this._approximationAlertModal && this._approximationAlertOverlay) {
             this._approximationAlertModal.classList.remove('open');
             this._approximationAlertOverlay.classList.remove('open');
+            // モーダルを閉じたら動画を停止して先頭に戻す
+            try {
+                const vid = document.getElementById('approximation-example-video');
+                if (vid && typeof vid.pause === 'function') {
+                    vid.pause();
+                    vid.currentTime = 0;
+                }
+            } catch (e) { /* noop */ }
+        }
+    }
+
+    /**
+     * モバイル向けサイドバータブの初期化
+     */
+    setupSidebarTabs() {
+        if (this._sidebarTabsInitialized) return;
+
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+
+        const tabContainer = sidebar.querySelector('.sidebar-tabs');
+        if (!tabContainer) return;
+
+        const tabButtons = Array.from(tabContainer.querySelectorAll('button[role="tab"][data-tab]'));
+        if (!tabButtons.length) return;
+
+        const updateIndicator = () => {
+            try {
+                const active = tabContainer.querySelector('.tab-btn.active, button[aria-selected="true"]');
+                if (!active) return;
+                const containerRect = tabContainer.getBoundingClientRect();
+                const btnRect = active.getBoundingClientRect();
+                const left = Math.max(6, btnRect.left - containerRect.left + 6);
+                const width = Math.max(20, btnRect.width - 12);
+                tabContainer.style.setProperty('--indicator-left', `${left}px`);
+                tabContainer.style.setProperty('--indicator-width', `${width}px`);
+            } catch (err) { }
+        };
+
+        this._sidebarTabsInitialized = true;
+        tabContainer.setAttribute('aria-orientation', 'horizontal');
+
+        const storageKey = 'grapen.sidebarTab';
+        const panels = new Map();
+
+        const ensurePanelMetadata = (panel, tab) => {
+            if (!panel) return;
+            panel.setAttribute('role', 'tabpanel');
+            panel.dataset.role = 'sidebar-tab';
+            panel.dataset.tab = tab;
+
+            let panelId = panel.id;
+            const button = tabButtons.find(btn => btn.dataset.tab === tab);
+            if (button) {
+                if (!button.id) {
+                    button.id = `sidebar-tab-${tab}`;
+                }
+                if (!panelId || button.getAttribute('aria-controls') !== panelId) {
+                    panelId = panelId || `${button.id}-panel`;
+                    panel.id = panelId;
+                    button.setAttribute('aria-controls', panelId);
+                }
+                panel.setAttribute('aria-labelledby', button.id);
+            } else if (!panelId) {
+                panelId = `sidebar-panel-${tab}`;
+                panel.id = panelId;
+            }
+            panel.setAttribute('aria-hidden', 'false');
+        };
+
+        const registerPanels = () => {
+            panels.clear();
+            const candidates = sidebar.querySelectorAll('[data-role="sidebar-tab"]');
+            candidates.forEach(panel => {
+                const tab = panel.dataset.tab;
+                if (!tab) return;
+                ensurePanelMetadata(panel, tab);
+                panels.set(tab, panel);
+            });
+        };
+
+        const storePreferredTab = (tab) => {
+            try {
+                localStorage.setItem(storageKey, tab);
+            } catch (e) { /* noop */ }
+        };
+
+        const loadPreferredTab = () => {
+            try {
+                return localStorage.getItem(storageKey);
+            } catch (e) {
+                return null;
+            }
+        };
+
+        registerPanels();
+
+        const state = {
+            activeTab: null
+        };
+
+        const activateTab = (tab, { focus = false, skipStore = false, skipPenToolSync = false } = {}) => {
+            if (!panels.has(tab)) {
+                registerPanels();
+            }
+            if (!panels.has(tab)) return;
+
+            const isMobileView = (typeof window !== 'undefined' && window.matchMedia)
+                ? window.matchMedia('(max-width: 610px)').matches
+                : false;
+
+            panels.forEach((panel, key) => {
+                const isActive = key === tab;
+                panel.classList.toggle('active', isActive);
+                const ariaHidden = (!isMobileView || isActive) ? 'false' : 'true';
+                panel.setAttribute('aria-hidden', ariaHidden);
+            });
+
+            tabButtons.forEach(button => {
+                const isActive = button.dataset.tab === tab;
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                button.setAttribute('tabindex', isActive ? '0' : '-1');
+                button.classList.toggle('active', isActive);
+            });
+
+            // スライディングインジケーターの位置を更新（存在する場合）
+            try { updateIndicator(); } catch (e) { /* noop */ }
+
+            if (focus) {
+                const targetButton = tabButtons.find(btn => btn.dataset.tab === tab);
+                if (targetButton) targetButton.focus();
+            }
+
+            if (!skipStore) {
+                storePreferredTab(tab);
+            }
+
+            state.activeTab = tab;
+            this._activeSidebarTab = tab;
+
+            if (!skipPenToolSync && this.penToolManager) {
+                this.penToolManager._suppressSidebarTabActivation = true;
+                if (tab === 'color') {
+                    this.penToolManager.showColorPicker();
+                }
+                this.penToolManager._suppressSidebarTabActivation = false;
+            }
+        };
+
+        tabButtons.forEach((button, index) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                const tab = button.dataset.tab;
+                if (!tab) return;
+                activateTab(tab);
+            });
+
+            button.addEventListener('keydown', (event) => {
+                const key = event.key;
+                if (key === 'ArrowRight' || key === 'ArrowDown') {
+                    event.preventDefault();
+                    const nextIndex = (index + 1) % tabButtons.length;
+                    const nextBtn = tabButtons[nextIndex];
+                    if (nextBtn) activateTab(nextBtn.dataset.tab, { focus: true });
+                } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+                    event.preventDefault();
+                    const prevIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+                    const prevBtn = tabButtons[prevIndex];
+                    if (prevBtn) activateTab(prevBtn.dataset.tab, { focus: true });
+                } else if (key === 'Home') {
+                    event.preventDefault();
+                    const firstBtn = tabButtons[0];
+                    if (firstBtn) activateTab(firstBtn.dataset.tab, { focus: true });
+                } else if (key === 'End') {
+                    event.preventDefault();
+                    const lastBtn = tabButtons[tabButtons.length - 1];
+                    if (lastBtn) activateTab(lastBtn.dataset.tab, { focus: true });
+                } else if (key === 'Enter' || key === ' ' || key === 'Spacebar') {
+                    event.preventDefault();
+                    const tab = button.dataset.tab;
+                    if (tab) activateTab(tab);
+                }
+            });
+        });
+
+        const preferredTab = loadPreferredTab();
+        const fallbackTab = tabButtons[0] ? tabButtons[0].dataset.tab : null;
+        const initialTab = (preferredTab && panels.has(preferredTab))
+            ? preferredTab
+            : (panels.has('curves') ? 'curves' : fallbackTab);
+
+        if (initialTab) {
+            activateTab(initialTab, { skipStore: true, skipPenToolSync: true });
+        }
+
+        // 初期化時およびウィンドウリサイズ時にインジケーター位置を確保
+        try { updateIndicator(); } catch (e) { /* noop */ }
+        window.addEventListener('resize', updateIndicator);
+
+        if (typeof window !== 'undefined' && window.matchMedia) {
+            const mq = window.matchMedia('(max-width: 610px)');
+            const handleViewportChange = () => {
+                if (state.activeTab) {
+                    activateTab(state.activeTab, { skipStore: true, skipPenToolSync: true });
+                }
+            };
+            if (typeof mq.addEventListener === 'function') {
+                mq.addEventListener('change', handleViewportChange);
+            } else if (typeof mq.addListener === 'function') {
+                mq.addListener(handleViewportChange);
+            }
+        }
+
+        document.addEventListener('grapen:sidebar-panel-ready', (event) => {
+            const detail = event.detail || {};
+            const tab = detail.tab;
+            const element = detail.element;
+            if (!tab || !element) return;
+            ensurePanelMetadata(element, tab);
+            panels.set(tab, element);
+            if (state.activeTab === tab) {
+                activateTab(tab, { skipStore: true, skipPenToolSync: true });
+            } else {
+                const isActive = state.activeTab === tab;
+                element.classList.toggle('active', isActive);
+                const isMobileView = (typeof window !== 'undefined' && window.matchMedia)
+                    ? window.matchMedia('(max-width: 610px)').matches
+                    : false;
+                const ariaHidden = (!isMobileView || isActive) ? 'false' : 'true';
+                element.setAttribute('aria-hidden', ariaHidden);
+            }
+        });
+
+        if (this.penToolManager && typeof this.penToolManager.setSidebarTabActivator === 'function') {
+            this.penToolManager.setSidebarTabActivator((tab, options = {}) => {
+                if (!tab) return;
+                activateTab(tab, {
+                    skipStore: options.skipStore === true,
+                    skipPenToolSync: options.skipPenToolSync === true
+                });
+            });
         }
     }
 
@@ -214,7 +478,6 @@ export class UIManager {
 
         // Undo/Redoボタンの初期状態を確認
         this.updateHistoryButtons();
-        this.updateClearButtonState();
 
         // Ctrl+Z, Ctrl+Y キーイベントで undo/redo
         document.addEventListener('keydown', (event) => {
@@ -228,7 +491,6 @@ export class UIManager {
                 if (!this.historyManager.isUndoStackEmpty()) {
                     this.undo();
                     this.updateHistoryButtons();
-                    this.updateClearButtonState();
                 }
             }
             // Ctrl+Y (redo)
@@ -237,7 +499,6 @@ export class UIManager {
                 if (!this.historyManager.isRedoStackEmpty()) {
                     this.redo();
                     this.updateHistoryButtons();
-                    this.updateClearButtonState();
                 }
             }
             // Ctrl+S (save graph)
@@ -251,6 +512,53 @@ export class UIManager {
                     }
                 }
             }
+            // Ctrl+C (copy formula item to dcg-copy-expression)
+            if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'c') {
+                event.preventDefault();
+                const selectCurveId = this.settings.selectCurveId;
+                // 曲線が選択されている場合
+                if (selectCurveId !== null) {
+                    const curveItem = this.curveManager.curves[selectCurveId];
+                    if (!curveItem) return;
+                    // コピーのtypeを"dcg-copy-expression"で、string形式でコピー
+                    const expressionPayloads = (curveItem.latexEquations || [])
+                        .map(eq => this._buildExpressionCopyPayload(eq))
+                        .filter(payload => payload && payload.latex && payload.latex.length);
+
+                    if (!expressionPayloads.length) return;
+
+                    const folderId = `grapen-${selectCurveId}`; // フォルダIDは曲線IDに基づく
+                    const folder = {
+                        type: "folder",
+                        id: folderId, // 曲線IDをフォルダIDとして使用
+                    };
+                    const expressions = expressionPayloads.map((payload, index) => {
+                        const expression = {
+                            type: "expression",
+                            id: `${folderId}-${index}`,
+                            folderId: folderId,
+                            color: curveItem.color || "#000000",
+                            lineWidth: String(curveItem.size ?? 6),
+                            latex: payload.latex
+                        };
+                        if (payload.parametricDomain) {
+                            expression.parametricDomain = payload.parametricDomain;
+                        }
+                        if (payload.domain) {
+                            expression.domain = payload.domain;
+                        }
+                        return expression;
+                    });
+
+                    const copyData = [folder, ...expressions];
+                    const copyDataString = JSON.stringify(copyData);
+                    const plainText = expressionPayloads.map(payload => payload.latex).join('\n');
+
+                    // カスタムMIMEタイプは現代的なClipboard APIではサポートされていないため
+                    // 最初からフォールバック方式を使用
+                    this.fallbackCopyToClipboard(plainText, copyDataString);
+                }
+            }
         });
     }
 
@@ -262,26 +570,51 @@ export class UIManager {
 
         // グラフ計算機のSVG要素を取得
         const svg = d3.select(this.graphCalculator.container).select('svg');
-        const isDragging = this.curveMovementHandler.isMovementEnabled();
 
-        // マウスダウンイベント
+        // マウスダウン / タッチ開始
         svg.on('mousedown touchstart', (event) => {
+            // カーブのドラッグジェスチャーが進行中の場合は描画/消去を行わない
+            const isDragging = (this.curveMovementHandler && this.curveMovementHandler.dragState) ? !!this.curveMovementHandler.dragState.isDragging : false;
+
             if (this.settings.currentTool === 'pen' && !isDragging) {
                 this.startDrawing(event);
+                return;
+            }
+
+            if (this.settings.currentTool === 'eraser' && !isDragging) {
+                this.isErasing = true;
+                this._erasedDuringGesture.clear();
+                this._handleEraseAtEvent(event);
+                if (event.cancelable) event.preventDefault();
+                return;
             }
         });
 
-        // マウス移動イベント
+        // マウス移動 / タッチ移動
         d3.select(document).on('mousemove touchmove', (event) => {
+            const isDragging = (this.curveMovementHandler && this.curveMovementHandler.dragState) ? !!this.curveMovementHandler.dragState.isDragging : false;
+
             if (this.settings.currentTool === 'pen' && this.isDrawing && !isDragging) {
                 this.draw(event);
+                return;
+            }
+
+            if (this.settings.currentTool === 'eraser' && this.isErasing) {
+                this._handleEraseAtEvent(event);
             }
         });
 
-        // マウスアップイベント
+        // マウスアップ / タッチ終了
         d3.select(document).on('mouseup touchend', () => {
+            const isDragging = (this.curveMovementHandler && this.curveMovementHandler.dragState) ? !!this.curveMovementHandler.dragState.isDragging : false;
+
             if (this.settings.currentTool === 'pen' && this.isDrawing && !isDragging) {
                 this.endDrawing();
+            }
+
+            if (this.settings.currentTool === 'eraser' && this.isErasing) {
+                this.isErasing = false;
+                this._erasedDuringGesture.clear();
             }
         });
 
@@ -300,9 +633,9 @@ export class UIManager {
 
         // d3イベントでpointerdownに統一（名前空間: .uiCurve）
         d3.select(svg).on('pointerdown.uiCurve', (event) => {
-            // 曲線移動モードが有効な場合はクリックでの選択を処理しない
-            if (this.curveMovementHandler && this.curveMovementHandler.isMovementEnabled() &&
-                this.curveMovementHandler.dragState && this.curveMovementHandler.dragState.isDragging) {
+            // 既に曲線をドラッグ中であればクリックでの選択を処理しない
+            // （グローバルトグルには依存しない。dragState.isDragging で判定）
+            if (this.curveMovementHandler && this.curveMovementHandler.dragState && this.curveMovementHandler.dragState.isDragging) {
                 return;
             }
 
@@ -465,14 +798,14 @@ export class UIManager {
 
         // 曲線の追加処理をCurveManagerに委譲
         const curveId = this.settings.nextCurveId;
-        const curveResult = this.curveManager.addHandDrawnCurve(
-            curveId,
-            this.currentDomainPath,
-            this.settings.currentColor,
-            this.settings.currentSize,
+        const curveResult = this.curveManager.addHandDrawnCurve({
+            id: curveId,
+            domainPath: this.currentDomainPath,
+            color: this.settings.currentColor,
+            size: this.settings.currentSize,
             useAdvancedMode,
-            this.ApproximatorManager.getSettings()
-        );
+            approximatorSettings: this.ApproximatorManager.getSettings()
+        });
 
         if (curveResult.success) {
             // IDをインクリメント（ここではUIManagerが管理）
@@ -490,9 +823,14 @@ export class UIManager {
                         text: '詳細',
                         i18nKey: 'alert.details',
                         onClick: () => {
+                            // 詳細表示（大きなモーダル）を開く際は「今後表示しない」フラグを解除して保存
+                            try { localStorage.setItem('approximationAlertDontShow', 'false'); } catch (e) { }
                             this.settings.showApproximationErrorModal = true;
-                            const checkbox = this._approximationAlertModal.querySelector('#dontShowAgain');
-                            checkbox.checked = false; // チェックを外す
+                            // モーダルが生成済みであればチェックボックスの表示も解除
+                            try {
+                                const checkbox = this._approximationAlertModal && this._approximationAlertModal.querySelector ? this._approximationAlertModal.querySelector('#dontShowAgain') : null;
+                                if (checkbox) checkbox.checked = false; // チェックを外す
+                            } catch (e) { }
                             this._showApproximationAlert();
                         }
                     }
@@ -565,13 +903,74 @@ export class UIManager {
     }
 
     /**
+     * 消しゴムヘルパー：ポインター／タッチ／マウスイベントからポインタ下の曲線を検出して削除
+     * ジェスチャー中に同じ曲線が複数回削除されないように
+     * @param {Event} event
+     */
+    _handleEraseAtEvent(event) {
+        try {
+            let clientX = null;
+            let clientY = null;
+
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else if (event.clientX !== undefined && event.clientY !== undefined) {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            } else if (event.changedTouches && event.changedTouches.length > 0) {
+                clientX = event.changedTouches[0].clientX;
+                clientY = event.changedTouches[0].clientY;
+            }
+
+            if (clientX === null || clientY === null) return;
+
+            const elem = document.elementFromPoint(clientX, clientY);
+            if (!elem) return;
+
+            let target = elem;
+            let graphCurveId = null;
+            for (let i = 0; i < 4 && target; i++) {
+                if (target.dataset && target.dataset.curveId) {
+                    graphCurveId = target.dataset.curveId || target.dataset.curveid || target.dataset.curveID;
+                    break;
+                }
+                if (target.getAttribute && target.getAttribute('data-curve-id')) {
+                    graphCurveId = target.getAttribute('data-curve-id');
+                    break;
+                }
+                target = target.parentElement;
+            }
+
+            if (!graphCurveId) return;
+
+            // GraphCalculatorの曲線IDをCurveManagerの曲線IDにマップ
+            const curveId = this.curveManager.getCurveIdByGraphCurveId(graphCurveId);
+            if (curveId === null || typeof curveId === 'undefined') return;
+
+            // 同じ曲線を複数回削除しないようにする
+            if (this._erasedDuringGesture.has(curveId)) return;
+            // 存在をチェック（曲線が既に削除されている可能性あり）
+            if (!this.curveManager.curves[curveId]) return;
+
+            this._erasedDuringGesture.add(curveId);
+            this.curveManager.deleteCurve({ target: { dataset: { id: curveId } } });
+
+            // 曲線リストに依存するUI状態を更新
+            this.updateHistoryButtons();
+        } catch (err) {
+            console.error('Eraser handler error:', err);
+        }
+    }
+
+    /**
      * ツールバーイベントの設定
      */
     setupToolbarEvents() {
         d3.select('#pen-tool').on('click', () => this.setActiveTool('pen'));
         d3.select('#cursor-tool').on('click', () => this.setActiveTool('cursor'));
         d3.select('#home-button').on('click', () => this.graphUtils.resetView());
-        d3.select('#clear-canvas').on('click', () => this.toggleDeleteMode());
+        d3.select('#eraser-tool').on('click', () => this.setActiveTool('eraser'));
 
         // 拡大縮小ボタンのイベントリスナーを追加
         d3.select('#zoom-in-button').on('click', () => this.zoomIn());
@@ -582,7 +981,6 @@ export class UIManager {
             if (!d3.select('#undo').classed('disabled')) {
                 this.undo();
                 this.updateHistoryButtons();
-                this.updateClearButtonState();
             }
         });
 
@@ -591,7 +989,6 @@ export class UIManager {
             if (!d3.select('#redo').classed('disabled')) {
                 this.redo();
                 this.updateHistoryButtons();
-                this.updateClearButtonState();
             }
         });
 
@@ -600,141 +997,7 @@ export class UIManager {
         this.historyManager.addAction = (...args) => {
             originalAddAction(...args);
             this.updateHistoryButtons();
-            this.updateClearButtonState();
         };
-
-        // 曲線移動トグルボタンの連携
-        const moveToggleBtn = document.getElementById('curve-move-toggle');
-        if (moveToggleBtn && this.curveMovementHandler) {
-            // 状態を同期
-            moveToggleBtn.classList.toggle('active', this.curveMovementHandler.isMovementEnabled());
-            moveToggleBtn.addEventListener('click', () => {
-                // CurveMovementHandler側で状態が切り替わるので、UI側も同期
-                moveToggleBtn.classList.toggle('active', this.curveMovementHandler.isMovementEnabled());
-                // 必要なら他のUI状態もここで制御
-            });
-        }
-    }
-
-    /**
-     * 削除モードの切り替え
-     */
-    toggleDeleteMode() {
-        const curveList = document.getElementById('curve-list');
-        const isDeleteMode = curveList.classList.toggle('delete-mode');
-
-        // Create or show/hide overlay
-        let overlay = document.getElementById('delete-mode-overlay');
-        if (!overlay && isDeleteMode) {
-            overlay = document.createElement('div');
-            overlay.id = 'delete-mode-overlay';
-            document.getElementById('graph-container').appendChild(overlay);
-        }
-
-        if (overlay) {
-            overlay.style.display = isDeleteMode ? 'block' : 'none';
-        }
-
-        // ゴミ箱アイコンの状態を更新
-        d3.select('#clear-canvas').classed('active', isDeleteMode);
-
-        if (isDeleteMode) {
-            // カラーアイコンのクリックを無効化
-            const colorIcons = document.querySelectorAll('.color-icon');
-            colorIcons.forEach(icon => {
-                // 既存のイベントリスナーを一時的に無効化
-                icon.style.pointerEvents = 'none';
-            });
-
-            // 他のパネルを閉じる
-            if (this.penToolManager) {
-                this.penToolManager.hideColorPicker();
-            }
-            if (this.settingsManager) {
-                this.settingsManager.hidePanel();
-            }
-
-            // 曲線が選択されていた場合は選択解除
-            if (this.settings.selectCurveId !== null) {
-                this.curveManager.delEmphasisCurve();
-                this.curveManager.deselectCurve();
-                d3.selectAll('.curve-item').classed('selected', false);
-            }
-
-            // Escキーイベントの設定
-            this.handleEscKey = (e) => {
-                if (e.key === 'Escape') {
-                    this.exitDeleteMode();
-                }
-            };
-            document.addEventListener('keydown', this.handleEscKey);
-            this.showDeleteModeNotification(true);
-        } else {
-            // カラーアイコンのクリックを再有効化
-            const colorIcons = document.querySelectorAll('.color-icon');
-            colorIcons.forEach(icon => {
-                icon.style.pointerEvents = 'auto';
-            });
-
-            document.removeEventListener('keydown', this.handleEscKey);
-            this.showDeleteModeNotification(false);
-
-            if (overlay) {
-                overlay.remove();
-            }
-        }
-    }
-
-    /**
-     * 削除モードを終了
-     */
-    exitDeleteMode() {
-        const curveList = document.getElementById('curve-list');
-        curveList.classList.remove('delete-mode');
-
-        const overlay = document.getElementById('delete-mode-overlay');
-        if (overlay) {
-            overlay.remove();
-        }
-
-        // カラーアイコンのクリックを再有効化
-        const colorIcons = document.querySelectorAll('.color-icon');
-        colorIcons.forEach(icon => {
-            icon.style.pointerEvents = 'auto';
-        });
-
-        d3.select('#clear-canvas').classed('active', false);
-        document.removeEventListener('keydown', this.handleEscKey);
-        this.showDeleteModeNotification(false);
-    }
-
-    /**
-     * 削除モード通知の表示/非表示
-     */
-    showDeleteModeNotification(show) {
-        let notification = document.querySelector('.delete-mode-notification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.className = 'delete-mode-notification';
-            notification.innerHTML = `
-                <i class="material-symbols-rounded">warning</i>
-                <span data-i18n="delete_mode.notification">削除モード: 削除したい曲線の×ボタンをクリックしてください</span>
-                <button class="exit-delete-mode-btn" data-i18n="delete_mode.exit">削除モード終了</button>
-            `;
-            document.body.appendChild(notification);
-
-            // 終了ボタンにイベントリスナーを追加
-            notification.querySelector('.exit-delete-mode-btn').addEventListener('click', () => {
-                this.exitDeleteMode();
-                this.updateClearButtonState();
-            });
-        }
-        // i18n適用: 毎回適用
-        const i18nElements = notification.querySelectorAll('[data-i18n]');
-        i18nElements.forEach(el => {
-            this.languageManager.updateSpecificElement(el);
-        });
-        notification.classList.toggle('visible', show);
     }
 
     /**
@@ -792,14 +1055,16 @@ export class UIManager {
         d3.select('#divider').call(drag);
 
         const resizeWindow = () => {
+            const sidebar = d3.select('#sidebar');
+            const canvasContainer = d3.select('#canvas-container');
+
             if (window.innerWidth <= 610) {
-                d3.select('#sidebar').style('flex', 'none');
+                sidebar.style('flex', null).style('width', null).style('max-width', null);
+                canvasContainer.style('flex', null).style('width', null).style('max-width', null);
                 return;
             }
 
             const container = d3.select('.container');
-            const sidebar = d3.select('#sidebar');
-            const canvasContainer = d3.select('#canvas-container');
             const containerWidth = container.node().getBoundingClientRect().width;
 
             // サイドバーとキャンバスの幅を再計算
@@ -830,13 +1095,16 @@ export class UIManager {
                 this.graphCalculator.enableZoom(true);
                 this.graphCalculator.enableCanvas(false);
                 svg.style('cursor', 'crosshair');
-                this.curveMovementHandler.updatePenToolState('pen');
+            } else if (tool === 'eraser') {
+                // 消しゴムはペンと同様にキャンバス移動を無効化し、消去挙動を優先する
+                this.graphCalculator.enableZoom(true);
+                this.graphCalculator.enableCanvas(false);
+                svg.style('cursor', 'crosshair');
             } else if (tool === 'cursor') {
                 // カーソルツールの場合はズームとキャンバス移動を有効化
                 this.graphCalculator.enableZoom(true);
                 this.graphCalculator.enableCanvas(true);
                 svg.style('cursor', 'move');
-                this.curveMovementHandler.updatePenToolState('cursor');
             }
         }
     }
@@ -945,23 +1213,6 @@ export class UIManager {
     }
 
     /**
-     * ごみ箱ボタンの状態を更新
-     */
-    updateClearButtonState() {
-        const curveList = document.getElementById('curve-list');
-        const clearButton = document.getElementById('clear-canvas');
-
-        if (!curveList || !clearButton) return;
-
-        const hasCurves = curveList.children.length > 0;
-
-        clearButton.disabled = !hasCurves;
-        clearButton.style.opacity = hasCurves ? '1' : '0.5';
-        clearButton.style.pointerEvents = hasCurves ? 'auto' : 'none';
-        clearButton.style.cursor = hasCurves ? 'pointer' : 'not-allowed';
-    }
-
-    /**
      * 近似不可能アラートの表示
      * @private
      */
@@ -980,6 +1231,190 @@ export class UIManager {
         if (this._approximationAlertModal && this._approximationAlertOverlay) {
             this._approximationAlertModal.classList.remove('open');
             this._approximationAlertOverlay.classList.remove('open');
+        }
+    }
+
+    _buildExpressionCopyPayload(eq) {
+        if (!eq) {
+            return null;
+        }
+
+        const rawSource = (eq.latex || eq.formula || '').toString();
+        if (!rawSource) {
+            return null;
+        }
+
+        const normalizedLatex = this._normalizeLatexForCopy(rawSource);
+        const isParametric = this._isParametricCopyTarget(eq, normalizedLatex);
+        const payload = { latex: normalizedLatex };
+
+        if (isParametric) {
+            const range = this._getOrderedParametricRange(eq);
+            if (range) {
+                payload.parametricDomain = range;
+                payload.domain = { ...range };
+            }
+            return payload;
+        }
+
+        const axis = (eq.domainAxis || (eq.type === 'vertical' ? 'y' : 'x')) || 'x';
+        const range = this._getOrderedDomain(eq);
+        if (range) {
+            payload.latex = `${normalizedLatex} \\left\\{${range.min} \\le ${axis} \\le ${range.max}\\right\\}`;
+        }
+
+        return payload;
+    }
+
+    _normalizeLatexForCopy(raw) {
+        const LEFT_PLACEHOLDER = '__LEFT_PLACEHOLDER__';
+        const RIGHT_PLACEHOLDER = '__RIGHT_PLACEHOLDER__';
+        let source = raw.replace(/\\left\(/g, LEFT_PLACEHOLDER).replace(/\\right\)/g, RIGHT_PLACEHOLDER);
+        let formatted = source.replace(/\(/g, '\\left(').replace(/\)/g, '\\right)');
+        formatted = formatted.replace(new RegExp(LEFT_PLACEHOLDER, 'g'), '\\left(');
+        formatted = formatted.replace(new RegExp(RIGHT_PLACEHOLDER, 'g'), '\\right)');
+        return formatted;
+    }
+
+    _isParametricCopyTarget(eq, latex) {
+        if (!eq) {
+            return false;
+        }
+
+        const type = eq.type;
+        if (type === 'parametric' || type === 'arc' || type === 'ellipse') {
+            return true;
+        }
+
+        const source = (latex || '').trim();
+        if (/^\\left\(/.test(source) && source.includes(',')) {
+            return true;
+        }
+
+        const formula = ((eq.formula || '').toString()).trim();
+        return /^\\left\(/.test(formula) && formula.includes(',');
+    }
+
+    _getOrderedDomain(eq) {
+        if (!eq || !eq.domain || eq.domain.start == null || eq.domain.end == null) {
+            return null;
+        }
+
+        const start = this._evaluateDomainBound(eq.domain.start);
+        const end = this._evaluateDomainBound(eq.domain.end);
+        if (!start.text || !end.text) {
+            return null;
+        }
+
+        let minText = start.text;
+        let maxText = end.text;
+
+        if (start.numeric != null && end.numeric != null && start.numeric > end.numeric) {
+            minText = end.text;
+            maxText = start.text;
+        }
+
+        return { min: minText, max: maxText };
+    }
+
+    _getOrderedParametricRange(eq) {
+        const source = (eq && eq.parameterRange) ? eq.parameterRange : (eq ? eq.domain : null);
+        if (!source || source.start == null || source.end == null) {
+            return null;
+        }
+
+        const start = this._evaluateDomainBound(source.start);
+        const end = this._evaluateDomainBound(source.end);
+        if (!start.text || !end.text) {
+            return null;
+        }
+
+        let minText = start.text;
+        let maxText = end.text;
+
+        if (start.numeric != null && end.numeric != null && start.numeric > end.numeric) {
+            minText = end.text;
+            maxText = start.text;
+        }
+
+        return { min: minText, max: maxText };
+    }
+
+    _evaluateDomainBound(value) {
+        const text = this._stringifyDomainValue(value);
+        if (!text) {
+            return { text: '', numeric: null };
+        }
+
+        let numeric = Number(text);
+        if (!Number.isFinite(numeric)) {
+            let expression = text.replace(/\\pi/g, 'Math.PI').replace(/π/g, 'Math.PI');
+            expression = expression.replace(/(?<=\d)\s*(?=Math\.PI)/g, '*').replace(/Math\.PI(?=\d)/g, 'Math.PI*');
+            try {
+                const evaluated = Function('"use strict"; return (' + expression + ');')();
+                if (Number.isFinite(evaluated)) {
+                    numeric = evaluated;
+                } else {
+                    numeric = null;
+                }
+            } catch (err) {
+                numeric = null;
+            }
+        }
+
+        if (!Number.isFinite(numeric)) {
+            numeric = null;
+        }
+
+        return { text, numeric };
+    }
+
+    _stringifyDomainValue(value) {
+        if (value == null) {
+            return '';
+        }
+        if (typeof value === 'string') {
+            return value.trim();
+        }
+        if (typeof value === 'number') {
+            return Number.isInteger(value) ? String(value) : String(value);
+        }
+        return String(value).trim();
+    }
+
+    /**
+     * フォールバック用のクリップボードコピー方法
+     * @param {string} plainText - プレーンテキスト
+     * @param {string} dcgData - dcg-copy-expression用データ
+     */
+    fallbackCopyToClipboard(plainText, dcgData) {
+        // 一時的なテキストエリアを作成してコピー
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = plainText;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+
+        // copy イベントをリッスンしてカスタムデータを設定
+        const handleCopy = (e) => {
+            e.clipboardData.setData('text/plain', plainText);
+            e.clipboardData.setData('dcg-copy-expression', dcgData);
+            e.preventDefault();
+            document.removeEventListener('copy', handleCopy);
+        };
+
+        try {
+            document.addEventListener('copy', handleCopy);
+            const success = document.execCommand('copy');
+            if (success) {
+                // console.log('式をクリップボードにコピーしました:', dcgData);
+            } else {
+                console.error('document.execCommand("copy")が失敗しました');
+            }
+        } catch (err) {
+            console.error('フォールバック方式でのコピーも失敗:', err);
+        } finally {
+            document.removeEventListener('copy', handleCopy);
+            document.body.removeChild(tempTextarea);
         }
     }
 }

@@ -9,20 +9,20 @@ export const DEFAULT_OPTIONS = {
         yMin: -10,
         yMax: 10
     },
-    
+
     // ズーム設定
     zoom: {
         speed: 0.24, // ズームスピード（デフォルト値8に設定、実際の操作感に合わせて調整）
         minScale: 0.1, // 最小ズームスケール
         maxScale: 100 // 最大ズームスケール
     },
-    
+
     // アニメーション設定
     animation: {
         enabled: true, // アニメーションを有効化
         duration: 150 // アニメーション時間（ミリ秒）
     },
-    
+
     // 描画設定
     draw: {
         microGrid: true, // 微細グリッドを描画するか
@@ -34,16 +34,16 @@ export const DEFAULT_OPTIONS = {
         xAxis: true,     // X軸を描画するか - 新規追加
         yAxis: true      // Y軸を描画するか - 新規追加
     },
-    
+
     // デバッグ設定
     debug: {
         enabled: false, // デバッグ出力を有効化するか
         level: 1 // 1: 情報, 2: エラーのみ, 3: 出力なし
     },
-    
+
     // レスポンシブ設定
     responsive: true, // ウィンドウリサイズ時に自動調整するか
-    
+
     // イベントコールバック
     events: {
         onDraw: null, // 描画時のコールバック

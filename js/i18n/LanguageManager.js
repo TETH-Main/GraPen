@@ -21,6 +21,7 @@ export class LanguageManager {
             this.createLanguagePanel();
             this.setupEventListeners();
             this.updatePageText();
+            document.dispatchEvent(new CustomEvent('languageStateChanged', { detail: { lang: this.currentLang } }));
         } catch (error) {
             console.error('Failed to initialize language manager:', error);
         }
@@ -44,12 +45,12 @@ export class LanguageManager {
                 ${lang.name}
                 <i class="material-symbols-rounded check-icon">done</i>
             `;
-            
+
             button.addEventListener('click', () => {
                 this.changeLanguage(lang.code);
                 this.hidePanel();
             });
-            
+
             this.panel.appendChild(button);
         });
 
@@ -91,9 +92,11 @@ export class LanguageManager {
         this.updateActiveLanguage();
         this.updatePageText();
         this.hidePanel();
-        
+
         const tutorialLink = document.querySelector('.tutorial-link');
         tutorialLink.href = this.getTutorialUrl();
+
+        document.dispatchEvent(new CustomEvent('languageStateChanged', { detail: { lang } }));
     }
 
     updateActiveLanguage() {
@@ -136,33 +139,33 @@ export class LanguageManager {
     }
 
     updateSpecificElement(element) {
-      if (!element || !this.translations[this.currentLang]) return;
+        if (!element || !this.translations[this.currentLang]) return;
 
-      // data-i18n-placeholder属性があればplaceholderを翻訳
-      if (element.hasAttribute('data-i18n-placeholder')) {
-        const key = element.dataset.i18nPlaceholder;
-        if (key && this.translations[this.currentLang][key]) {
-          element.placeholder = this.translations[this.currentLang][key];
+        // data-i18n-placeholder属性があればplaceholderを翻訳
+        if (element.hasAttribute('data-i18n-placeholder')) {
+            const key = element.dataset.i18nPlaceholder;
+            if (key && this.translations[this.currentLang][key]) {
+                element.placeholder = this.translations[this.currentLang][key];
+            }
+            return;
         }
-        return;
-      }
 
-      const key = element.dataset.i18n;
-      if (!key || !this.translations[this.currentLang][key]) return;
+        const key = element.dataset.i18n;
+        if (!key || !this.translations[this.currentLang][key]) return;
 
-      if (
-        key.startsWith('header.') ||
-        key.startsWith('actions.') ||
-        key.startsWith('tools.')
-      ) {
-        element.title = this.translations[this.currentLang][key];
-      } else {
-        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-          element.placeholder = this.translations[this.currentLang][key];
+        if (
+            key.startsWith('header.') ||
+            key.startsWith('actions.') ||
+            key.startsWith('tools.')
+        ) {
+            element.title = this.translations[this.currentLang][key];
         } else {
-          element.textContent = this.translations[this.currentLang][key];
+            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                element.placeholder = this.translations[this.currentLang][key];
+            } else {
+                element.textContent = this.translations[this.currentLang][key];
+            }
         }
-      }
     }
 
     setupEventListeners() {
@@ -174,8 +177,8 @@ export class LanguageManager {
 
         // パネル外クリックで閉じる
         document.addEventListener('click', (e) => {
-            if (this.isOpen && 
-                !this.panel.contains(e.target) && 
+            if (this.isOpen &&
+                !this.panel.contains(e.target) &&
                 !e.target.closest('#language-selector')) {
                 this.hidePanel();
             }

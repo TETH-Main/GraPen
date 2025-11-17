@@ -34,7 +34,7 @@ export function initGraphCalculator() {
         },
         responsive: true
     });
-    
+
     // サンプル曲線を追加
     // addSampleCurve(calculator);
     // addSampleCurve2(calculator); // SVGパス文字列版のサンプル
@@ -53,7 +53,7 @@ function addSampleCurve(calculator) {
         const y = 3 * Math.sin(x);
         sinePoints.push([x, y]);
     }
-    
+
     // 正弦波の曲線を追加
     calculator.addCurve(sinePoints, {
         color: 'red',
@@ -71,32 +71,32 @@ function addSampleCurve2(calculator) {
     // 例: 正弦波の形を模した曲線（ベジェ曲線で描画）
     // 以下のパスは、ドメイン座標で(-8,0)から(8,0)の範囲で波を描く
     const svgPath = "M -8,0 " +
-                   "C -7,2 -6,-2 -5,0 " +
-                   "C -4,2 -3,-2 -2,0 " +
-                   "C -1,2 0,-2 1,0 " +
-                   "C 2,2 3,-2 4,0 " +
-                   "C 5,2 6,-2 7,0 " +
-                   "L 8,0";
-    
+        "C -7,2 -6,-2 -5,0 " +
+        "C -4,2 -3,-2 -2,0 " +
+        "C -1,2 0,-2 1,0 " +
+        "C 2,2 3,-2 4,0 " +
+        "C 5,2 6,-2 7,0 " +
+        "L 8,0";
+
     // 曲線を追加
     calculator.addCurve(svgPath, {
         color: 'blue',
         width: 3,
         id: 'sample-svg-path'
     });
-    
+
     // 円弧を使った別のサンプル
     const circlePath = "M 0,3 A 3,3 0 1,1 0,-3 A 3,3 0 1,1 0,3";
-    
+
     calculator.addCurve(circlePath, {
         color: 'purple',
         width: 2,
         id: 'sample-circle-path'
     });
-    
+
     // 矩形のパス
     const rectPath = "M -5,-4 H 5 V 4 H -5 Z";
-    
+
     calculator.addCurve(rectPath, {
         color: 'green',
         width: 2,

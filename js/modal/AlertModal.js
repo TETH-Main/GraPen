@@ -7,7 +7,7 @@ export class AlertModal {
         if (!this.alertElement) {
             this.createAlertElement();
         }
-        
+
         this.languageManager = languageManager
     }
 
@@ -49,20 +49,20 @@ export class AlertModal {
 
         // 位置クラスをリセット
         this.alertElement.className = 'alert-modal';
-        
+
         // タイプと位置のクラスを追加
         this.alertElement.classList.add(`alert-${type}`, `alert-${position}`);
-        
+
         // i18nキーが指定されている場合は翻訳を取得
         let displayMessage = message;
         let linkText = link ? link.text : '';
-        
+
         if (i18nKey) {
             const alertElement = document.createElement('span');
             alertElement.dataset.i18n = i18nKey;
             this.languageManager.updateSpecificElement(alertElement);
             displayMessage = alertElement.textContent || message;
-            
+
             // リンクテキストの翻訳
             if (link && link.i18nKey) {
                 const linkElement = document.createElement('span');
@@ -71,7 +71,7 @@ export class AlertModal {
                 linkText = linkElement.textContent || link.text;
             }
         }
-        
+
         // メッセージとリンクを設定
         let content = `
             <div class="alert-icon">${icons[type] || icons.info}</div>
@@ -80,7 +80,7 @@ export class AlertModal {
                 ${link ? `<a href="#" class="alert-link">${linkText}</a>` : ''}
             </div>
         `;
-        
+
         this.alertElement.innerHTML = content;
 
         // リンクのクリックイベントを設定
@@ -101,10 +101,10 @@ export class AlertModal {
         } else {
             document.body.appendChild(this.alertElement);
         }
-        
+
         // 表示
         this.alertElement.classList.remove('hidden');
-        
+
         // 指定時間後に非表示
         setTimeout(() => {
             this.alertElement.classList.add('hidden');

@@ -50,6 +50,10 @@
     -ms-user-select: none;
 }
 
+#graph-container svg {
+    touch-action: none;
+}
+
 /* グリッド線のスタイル - x軸とy軸用 */
 .grid-line {
     stroke: #000;

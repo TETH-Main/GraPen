@@ -8,6 +8,13 @@
     border: 1px solid var(--border-color, #ddd);
 }
 
+.curve-approx-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 16px 0 6px;
+    color: var(--text-color, #333);
+}
+
 .curve-options.hidden {
     display: none;
 }
@@ -27,6 +34,15 @@
     color: var(--disabled-text, #6c757d);
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     flex-shrink: 0;
+}
+
+/* アイテム選択処理を無視したい要素に付ける共通クラス */
+.ignore-selection {
+    /* テキスト選択を防止（必要最低限） */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 .curve-option-btn i {
@@ -156,6 +172,39 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+.jump-to-curve-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin: 0 4px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-color, #333);
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.jump-to-curve-btn .material-symbols-outlined {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.jump-to-curve-btn:hover {
+    background: rgba(0, 123, 255, 0.06);
+    color: var(--primary-color, #007bff);
+    border-color: rgba(0, 123, 255, 0.18);
+}
+
+.jump-to-curve-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.10);
+}
+
 /* 移動モード時の通知バー */
 .movement-mode-notification {
     position: fixed;
@@ -205,7 +254,6 @@
     text-anchor: middle;
     pointer-events: none;
     -webkit-text-stroke: 3px white;
-    text-stroke: 3px white;
 }
 
 .x-displacement-text {
@@ -215,7 +263,6 @@
     text-anchor: middle;
     pointer-events: none;
     -webkit-text-stroke: 3px white;
-    text-stroke: 3px white;
 }
 
 .y-displacement-text {
@@ -225,5 +272,4 @@
     text-anchor: middle;
     pointer-events: none;
     -webkit-text-stroke: 3px white;
-    text-stroke: 3px white;
 }

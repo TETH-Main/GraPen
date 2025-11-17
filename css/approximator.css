@@ -1,165 +1,355 @@
-.approximator-panel {
-    width: 400px;
+.curve-approx-root {
     position: absolute;
-    background: var(--panel-color, #f9f9f9);
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    visibility: hidden;
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    top: 16px;
+    left: 0;
+    display: none;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
+    z-index: 950;
+    --approx-bg: #f3f4f6;
+    transform: translateX(calc(-100% + 20px));
+    transition: transform 320ms cubic-bezier(.2, .9, .22, 1), box-shadow 220ms ease;
 }
 
-.approximator-panel.visible {
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* スライダー設定のスタイル */
-.settings-slider {
+body.grapen-advanced-mode .curve-approx-root {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
 }
 
-.slider-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.slider-container input[type="range"] {
-    flex: 1;
-    height: 4px;
-    background: var(--border-color, #ddd);
-    border-radius: 2px;
-    appearance: none;
-}
-
-.slider-container input[type="range"]::-webkit-slider-thumb {
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    background: var(--primary-color, #007bff);
-    border-radius: 50%;
-    cursor: pointer;
-}
-
-.slider-container input[type="number"] {
-    width: 60px;
-    padding: 4px;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
-    text-align: right;
-}
-
-.settings-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color, #ddd);
-}
-
-.default-btn, .apply-btn {
+.curve-approx-toggle {
+    pointer-events: auto;
+    width: 20px;
+    height: 56px;
+    border-radius: 0 9px 9px 0;
+    border: none;
+    background: var(--approx-bg, #ffffff);
+    box-shadow: inset 0 0 0 1px var(--approx-frame-border, rgba(0, 0, 0, 0.06));
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color, #ddd);
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 14px;
-}
-
-.default-btn {
-    background: var(--panel-color, #f9f9f9);
+    transition: transform 0.12s ease;
+    padding: 0;
     color: var(--text-color, #333);
-    flex: 1;
+    position: relative;
+    z-index: 972;
 }
 
-.default-btn:hover {
-    background: var(--hover-background, #e9ecef);
+.curve-approx-toggle:focus-visible {
+    outline: 2px solid var(--primary-blue, #007bff);
+    outline-offset: 2px;
 }
 
-.apply-btn {
-    background: var(--primary-color, #007bff);
-    color: #fff;
-    border-color: var(--primary-color, #007bff);
-    flex: 1;
+.curve-approx-toggle:hover {
+    transform: translateY(-2px);
+    background: var(--approx-bg, #ffffff);
 }
 
-.apply-btn:hover {
-    background: var(--primary-hover-color, #0056b3);
+.curve-approx-toggle .material-symbols-rounded {
+    font-size: 14px;
+    transition: transform 0.2s ease;
 }
 
-.settings-buttons i {
-    font-size: 18px;
+.curve-approx-toggle[aria-expanded="true"] .material-symbols-rounded {
+    transform: rotate(180deg);
 }
 
-.settings-subheading {
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 8px;
-  font-weight: 500;
-  user-select: none;
+.curve-approx-panel {
+    pointer-events: auto;
+    position: relative;
+    width: min(320px, 78vw);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    margin-left: -1px;
+    border-radius: 0 14px 14px 0;
+    background: var(--approx-bg, #ffffff);
+    border: none;
+    box-shadow: inset 0 0 0 1px var(--approx-frame-border, rgba(0, 0, 0, 0.06));
+    backdrop-filter: none;
+    transform: translateZ(0);
+    z-index: 960;
+    /* reduce max height so panel content doesn't push tabs */
+    max-height: min(600px, calc(100vh - 96px));
+    overflow: hidden;
 }
 
-/* パネル内のcurve-optionsスタイル */
-.approximator-panel .curve-options {
-  display: flex;
-  gap: 6px;
-  padding: 4px 6px;
-  margin: 4px 0 8px;
-  background: var(--panel-color, #f9f9f9);
-  border-radius: 4px;
-  border: 1px solid var(--border-color, #ddd);
+.curve-approx-root:not(.open) .curve-approx-panel {
+    opacity: 0.98;
 }
 
-.approximator-panel .curve-options.hidden {
-  display: none;
+.curve-approx-toggle {
+    margin-top: 40px;
 }
 
-.approximator-panel .curve-option-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  cursor: pointer;
-  background: var(--disabled-background, #e9ecef);
-  border-color: var(--disabled-border, #ced4da);
-  color: var(--disabled-text, #6c757d);
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+.curve-approx-root.open {
+    transform: translateX(0);
 }
 
-.approximator-panel .curve-option-btn i {
-  font-size: 18px;
-}
-
-.approximator-panel .curve-option-btn.active {
-  background: var(--primary-color, #007bff);
-  color: #fff;
-}
-
-.approximator-panel .curve-option-btn.active:hover {
-  background: var(--primary-hover-color, #0056b3);
-}
-
-.slider-description {
+.curve-approx-tabs {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    gap: 6px;
+    background: var(--approx-tab-bg, #ffffff);
+    padding: 2px 6px;
+    border-radius: 6px;
     font-size: 12px;
-    color: #888;
-    margin-top: 2px;
-    margin-bottom: 0;
-    line-height: 1.4;
-    padding-left: 2px;
+    height: 36px;
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.curve-approx-tabs {
+    flex: 0 0 auto;
+    margin-bottom: 4px;
+}
+
+.curve-approx-tabs::after {
+    content: "";
+    position: absolute;
+    height: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    pointer-events: none;
+}
+
+.curve-approx-tabs .curve-approx-tab {
+    padding: 4px 8px;
+    min-height: 26px;
+    font-size: 12px;
+    line-height: 1;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    color: #9aa0a6;
+    cursor: pointer;
+    transition: color 140ms ease, background-color 140ms ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 0 auto;
+}
+
+.curve-approx-tabs .curve-approx-tab:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.curve-approx-tabs .curve-approx-tab.active,
+.curve-approx-tabs .curve-approx-tab[aria-selected="true"] {
+    color: var(--primary-blue);
+    font-weight: 600;
+    background: transparent;
+}
+
+.curve-approx-tabs .curve-approx-tab:focus-visible {
+    outline: 2px solid rgba(0, 0, 0, 0.06);
+    outline-offset: 2px;
+}
+
+.curve-approx-tabs-inner {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    position: relative;
+    min-width: max-content;
+    padding-left: 6px;
+    height: 36px;
+}
+
+.curve-approx-tabs-inner::after {
+    content: "";
+    position: absolute;
+    height: 2px;
+    bottom: 4px;
+    left: var(--indicator-left, 8px);
+    width: var(--indicator-width, 36px);
+    background: var(--primary-blue);
+    border-radius: 2px;
+    transition: left 160ms ease, width 160ms ease;
+    pointer-events: none;
+}
+
+.curve-approx-tabs::-webkit-scrollbar {
+    height: 0;
+    display: none;
+}
+
+.curve-approx-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
+    /* keep panels bounded so tabs remain visible */
+    max-height: calc(100% - 48px);
+    overflow: hidden;
+}
+
+.curve-approx-content {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+    /* limit individual panel body so tabs/header/footer keep space */
+    max-height: calc(100% - 8px);
+}
+
+.curve-approx-content[aria-hidden="false"] {
+    display: flex;
+}
+
+.curve-approx-panel .curve-options {
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.curve-approx-control {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.curve-approx-control label {
+    font-size: 12px;
+    color: var(--text-color, #444);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 0 110px;
+    /* fixed label column */
+    min-width: 86px;
+    max-width: 140px;
+}
+
+.curve-approx-range-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    /* take remaining horizontal space */
+    min-width: 0;
+    /* allow shrinking inside flex container */
+}
+
+.curve-approx-range-wrapper input[type="range"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    appearance: none;
+    height: 4px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.10);
+}
+
+.curve-approx-range-wrapper input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary-blue, #007bff);
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.curve-approx-range-wrapper input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary-blue, #007bff);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.curve-approx-range-wrapper input[type="number"] {
+    width: 52px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    background: rgba(255, 255, 255, 0.96);
+    text-align: right;
+    font-size: 12px;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 480px) {
+    .curve-approx-control {
+        gap: 6px;
+    }
+
+    .curve-approx-control label {
+        flex: 0 0 86px;
+        font-size: 11px;
+    }
+
+    .curve-approx-range-wrapper input[type="number"] {
+        width: 48px;
+        font-size: 11px;
+    }
+}
+
+.curve-approx-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.curve-approx-reset {
+    border: none;
+    background: transparent;
+    color: var(--primary-blue, #007bff);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background-color 0.16s ease;
+}
+
+.curve-approx-reset:hover {
+    background: rgba(0, 123, 255, 0.08);
+}
+
+.curve-approx-reset:focus-visible {
+    outline: 2px solid var(--primary-blue, #007bff);
+    outline-offset: 2px;
+}
+
+.curve-approx-empty {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.58);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 720px) {
+    .curve-approx-panel {
+        width: min(280px, 80vw);
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
 }

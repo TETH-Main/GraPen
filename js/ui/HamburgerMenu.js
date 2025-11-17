@@ -119,6 +119,8 @@ export class HamburgerMenu {
 
         const noGraphsSpan = document.querySelector('.menu-no-graphs');
 
+        listElem.querySelectorAll('.graph-block-link').forEach(el => el.remove());
+
         if (!graphList || graphList.length === 0) {
             noGraphsSpan.style.display = 'block';
             // if (this.languageManager) this.languageManager.updatePageText();
@@ -141,13 +143,14 @@ export class HamburgerMenu {
             block.innerHTML = `
                 <div class="graph-thumb">
                     <img src="${graph.thumbnail}" alt="thumb" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
+                    <span class="graph-hash thumb-hash">${graph.hash}</span>
                 </div>
                 <div class="graph-info">
                     <div class="graph-title">${graph.title}</div>
-                    <span class="graph-hash">${graph.hash}</span>
                 </div>
                 <button class="graph-delete-btn" title="削除" type="button">
-                    <i class="material-symbols-rounded">close</i>
+                    <i class="material-symbols-rounded" aria-hidden="true">delete</i>
+                    <span class="sr-only">削除</span>
                 </button>
                 <div class="graph-loading-indicator"></div>
             `;

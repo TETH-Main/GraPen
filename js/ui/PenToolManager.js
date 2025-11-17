@@ -8,25 +8,29 @@ export class PenToolManager {
     constructor(settings, curveManager, languageManager) {
         this.settings = settings;
         this.curveManager = curveManager;
-        this.prevColor = '#000000';
-        this.currentColor = '#000000';
+
+        const defaultColor = this.settings.currentColor || '#cccccc';
+        this.prevColor = defaultColor;
+        this.currentColor = defaultColor;
         this.initialColor = null; // 色の変更履歴を追跡するための初期色
 
         // カラーピッカーのDOM要素
         this.panel = null;
         this.colorDisplay = null;
         this.colorArea = null;
+        this.colorAreaCtx = null;
         this.colorCursor = null;
-        this.hueSlider = null;
+        this.valueSlider = null;
         this.colorPreview = null;
         this.hexInput = null;
+        this.closeButton = null;
 
         // サイズスライダーのDOM要素
         this.sizeSlider = null;
         this.currentSize = this.settings.currentSize || 6;
 
         // HSVカラー状態
-        this.hsv = { h: 0, s: 0, v: 0 };
+        this.hsv = { h: 0, s: 0, v: 0.8 };
 
         // カラーパレットのリスト（デフォルト8色）
         this.defaultColors = [
@@ -37,18 +41,39 @@ export class PenToolManager {
         // 現在のパレット（デフォルト色からスタート）
         this.colorPalette = [...this.defaultColors];
 
-        // ローカルストレージからカスタム色をロード
-        this.loadCustomColors();
+        // 削除関連の状態
+        this.activeDeletePreset = null;
+        // 表示された削除ボタンを自動で非表示にするタイマー（長めのタイムアウト）
+        this.deleteRevealTimer = null;
+        // タップ直後に即時表示されるのを防ぐための短い遅延タイマー（誤って同時に削除されるのを防止）
+        this.deleteShowDelayTimer = null;
+        this.coarsePointerMatcher = (typeof window !== 'undefined' && window.matchMedia)
+            ? window.matchMedia('(hover: none)')
+            : null;
 
-        // 削除モード
-        this.deleteMode = false;
+        // パネルの状態管理
+        this.isOpen = false;
+
+        // 言語マネージャー参照
+        this.languageManager = languageManager;
+        this.alertModal = new AlertModal(languageManager);
+
+        // サイドバータブ制御用のコールバック
+        this.sidebarTabActivator = null;
+        this._suppressSidebarTabActivation = false;
+
+        // 現在アクティブなポインタ（Hue/SVドラッグ）を追跡
+        this.activePointer = null;
+
+        // ローカルストレージからカスタム色をロード
+        if (!this.settings.currentColor) {
+            this.settings.currentColor = defaultColor;
+        }
+
+        this.loadCustomColors();
 
         // ペンツールの初期化
         this.initialize();
-
-        this.languageManager = languageManager;
-
-        this.alertModal = new AlertModal(languageManager);
     }
 
     /**
@@ -94,18 +119,39 @@ export class PenToolManager {
         // DOM要素の参照を取得
         this.panel = document.getElementById('color-picker-panel');
         this.colorDisplay = document.getElementById('color-display');
-        this.colorArea = document.getElementById('color-area');
-        this.colorCursor = document.getElementById('color-cursor');
-        this.hueSlider = document.getElementById('hue-slider');
+        this.hueRingCanvas = document.getElementById('hue-ring-canvas');
+        this.hueRingCursor = document.getElementById('hue-ring-cursor');
+        this.svSquareCanvas = document.getElementById('sv-square-canvas');
+        this.svSquareCursor = document.getElementById('sv-square-cursor');
         this.colorPreview = document.getElementById('color-preview');
         this.hexInput = document.getElementById('color-hex-input');
         this.sizeSlider = document.getElementById('size');
+        this.closeButton = this.panel ? this.panel.querySelector('[data-role="close-picker"]') : null;
+
+        if (this.hueRingCanvas) {
+            this.hueRingCtx = this.hueRingCanvas.getContext('2d');
+        }
+        if (this.svSquareCanvas) {
+            this.svSquareCtx = this.svSquareCanvas.getContext('2d');
+        }
+
+        if (this.valueSlider) {
+            this.valueSlider.value = String(Math.round((this.hsv.v || 0) * 100));
+        }
+
+        if (this.isPanelEmbedded() && this.panel) {
+            this.panel.classList.add('visible');
+        }
 
         // サイズスライダーの初期値を設定から読み込み
         if (this.sizeSlider) {
             this.currentSize = Number(this.sizeSlider.value);
             this.settings.currentSize = this.currentSize;
             this.settings.prevSize = this.currentSize;
+        }
+
+        if (this.closeButton) {
+            this.closeButton.setAttribute('aria-expanded', 'true');
         }
 
         // イベントリスナーの設定
@@ -115,6 +161,18 @@ export class PenToolManager {
         this.updateColorPalette();
 
         this.updateColorDisplayMini(this.settings.currentColor || '#000000');
+        const initialColor = this.settings.currentColor || '#000000';
+
+        // 初期色からHSV値を設定
+        this.setColorFromHex(initialColor);
+
+        // キャンバスを初期描画
+        if (this.hueRingCanvas && this.svSquareCanvas) {
+            this.renderHueRing();
+            this.renderSVSquare();
+            requestAnimationFrame(() => this.updateCursorPositions());
+        }
+
         this.updateSizeDisplayMini(this.settings.currentSize || 8);
     }
 
@@ -153,7 +211,7 @@ export class PenToolManager {
             console.log('Color changed:', this.settings.currentColor);
             if (this.settings.selectCurveId !== null && this.curveManager) {
                 console.log('Curve selected:', this.settings.selectCurveId);
-                this.curveManager.recordColorChange(this.settings.currentColor);
+                this.curveManager.recordColorChange(this.settings.currentColor, this.initialColor);
                 // const curve = this.curveManager.curves[this.settings.selectCurveId];
                 // this.curveManager.recordStyleChange(curve.color, curve.size);
             } else {
@@ -185,48 +243,83 @@ export class PenToolManager {
         if (document.getElementById('color-picker-panel')) return;
 
         const panelHTML = `
-      <div id="color-picker-panel" class="color-picker-panel">
-        <div class="color-picker-header">
-          <i class="material-symbols-rounded">brush</i>
-          <span><strong data-i18n="pen_panel.title">ペン設定</strong></span>
-          <button id="close-color-picker" class="close-btn">&times;</button>
-        </div>
-        <div class="color-picker-body">
-          <div class="size-slider-section">
-            <i class="material-symbols-rounded">
-              line_weight
-            </i>
-            <button class="size-adjust-btn decrease">
-              <i class="material-symbols-rounded">chips</i>
-            </button>
-            <div class="size-slider-container">
-              <input type="range" id="size" min="1" max="20" value="6" class="horizontal-slider">
+            <div id="color-picker-panel" class="color-picker-panel">
+                <div class="color-picker-header">
+                    <div class="header-left">
+                        <i class="material-symbols-rounded none-event" aria-hidden="true">palette</i>
+                    </div>
+                    <div class="color-picker-title" data-i18n="pen_panel.color_title">ペンの色と太さ</div>
+                    <button type="button" class="details-dropdown ignore-selection" data-role="close-picker" aria-label="カラーピッカーを折りたたむ" aria-controls="color-picker-body" aria-expanded="true" title="折りたたむ">
+                        <i class="material-symbols-rounded none-event">expand_more</i>
+                    </button>
+                </div>
+                <div class="color-picker-body" id="color-picker-body">
+                    <div class="color-area-container">
+                        <div class="size-slider-section">
+                            <div class="size-scale">
+                                <div class="size-scale-mark" data-value="20">20</div>
+                                <div class="size-scale-mark" data-value="15">15</div>
+                                <div class="size-scale-mark" data-value="10">10</div>
+                                <div class="size-scale-mark" data-value="5">5</div>
+                                <div class="size-scale-mark" data-value="1">1</div>
+                            </div>
+                            <div id="size-slider-container" class="size-slider-container">
+                                <input type="range" id="size" min="1" max="20" value="6" class="size-slider" aria-label="ペンの太さ">
+                            </div>
+                        </div>
+                        <div class="color-ring-wrapper" data-role="hue-ring">
+                            <canvas id="hue-ring-canvas" width="160" height="160" aria-hidden="true"></canvas>
+                            <div id="hue-ring-cursor" class="color-cursor" role="slider" aria-label="Hue" aria-valuemin="0" aria-valuemax="360" aria-valuenow="210"></div>
+                            <div class="sv-square-wrapper" data-role="sv-square">
+                            <canvas id="sv-square-canvas" width="88" height="88" aria-hidden="true"></canvas>
+                                <div id="sv-square-cursor" class="color-cursor" role="slider" aria-label="Saturation/Value" aria-valuemin="0" aria-valuemax="100" aria-valuenow="75"></div>
+                                <input type="range" id="sv-keyboard-fallback" class="sr-only" min="0" max="100" data-role="sv-radial" aria-label="Saturation and Value">
+                            </div>
+                        </div>
+                        <div id="color-preview" class="color-preview" role="button" tabindex="0" aria-label="現在の色をパレットに保存" title="現在の色をパレットに保存"></div>
+                    </div>
+                    <div class="color-preview-container">
+                        <input type="text" id="color-hex-input" class="color-hex-input" value="#000000">
+                        <!-- color-preview は上の color-area-container 内に移動しました -->
+                    </div>
+                    <div class="color-presets" id="color-presets"></div>
+                </div>
             </div>
-            <button class="size-adjust-btn increase">
-              <i class="material-symbols-rounded">add_box</i>
-            </button>
-          </div>
-          <hr class="section-divider">
-          <div class="color-slider-container">
-            <input type="range" id="hue-slider" min="0" max="360" value="0" class="hue-slider">
-          </div>
-          <div class="color-area-container">
-            <div id="color-area" class="color-area"></div>
-            <div id="color-cursor" class="color-cursor"></div>
-          </div>
-          <div class="color-preview-container">
-            <div id="color-preview" class="color-preview"></div>
-            <input type="text" id="color-hex-input" class="color-hex-input" value="#000000">
-          </div>
-          <div class="color-presets" id="color-presets"></div>
-        </div>
-      </div>
-    `;
+        `;
 
-        // ボディに追加
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = panelHTML;
-        document.body.appendChild(tempDiv.firstElementChild);
+        const panelElem = tempDiv.firstElementChild;
+
+        if (panelElem) {
+            panelElem.setAttribute('role', 'tabpanel');
+            panelElem.setAttribute('aria-hidden', 'false');
+            panelElem.dataset.role = 'sidebar-tab';
+            panelElem.dataset.tab = 'color';
+            panelElem.setAttribute('aria-labelledby', 'sidebar-tab-color');
+        }
+
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            panelElem.classList.add('color-picker-panel--embedded');
+            panelElem.dataset.embedded = 'true';
+
+            const curveList = document.getElementById('curve-list');
+            if (curveList && curveList.parentElement === sidebar) {
+                sidebar.insertBefore(panelElem, curveList);
+            } else {
+                sidebar.appendChild(panelElem);
+            }
+
+            panelElem.classList.add('visible');
+            panelElem.classList.remove('active');
+        } else {
+            document.body.appendChild(panelElem);
+        }
+
+        document.dispatchEvent(new CustomEvent('grapen:sidebar-panel-ready', {
+            detail: { tab: 'color', element: panelElem }
+        }));
     }
 
     /**
@@ -236,11 +329,10 @@ export class PenToolManager {
         const presetsContainer = document.getElementById('color-presets');
         if (!presetsContainer) return;
 
+        this.clearDeleteRevealState();
+
         // パレットをクリア
         presetsContainer.innerHTML = '';
-
-        // カスタム色の有無をチェック
-        const hasCustomColors = this.colorPalette.some(color => !this.defaultColors.includes(color));
 
         // パレットの色を追加
         this.colorPalette.forEach((color, index) => {
@@ -248,6 +340,8 @@ export class PenToolManager {
             colorDiv.className = 'color-preset';
             colorDiv.style.backgroundColor = color;
             colorDiv.setAttribute('data-color', color);
+            colorDiv.setAttribute('role', 'button');
+            colorDiv.setAttribute('tabindex', '0');
 
             // デフォルト色かカスタム色かを判定
             const isDefaultColor = this.defaultColors.includes(color);
@@ -261,50 +355,76 @@ export class PenToolManager {
                 colorDiv.appendChild(lockIcon);
             }
 
-            // Remove pointer-events restriction for default colors
-            d3.select(colorDiv).on('pointerdown.penTool', (e) => {
-                if (!this.deleteMode) {
-                    this.setColorFromHex(color);
-                    this.applyColor();
+            const selectColor = (event, { forceReveal = false } = {}) => {
+                if (event && event.target.closest('.color-preset-delete')) {
+                    return;
                 }
-            });
 
-            // 削除モードの場合、カスタム色には削除ボタンを表示
-            if (this.deleteMode && !isDefaultColor) {
+                if (!this.isOpen) {
+                    this.showColorPicker();
+                }
+
+                this.setColorFromHex(color);
+                this.applyColor();
+
+                if (this.settings.selectCurveId !== null && this.curveManager) {
+                    this.curveManager.recordColorChange(this.settings.currentColor);
+                }
+
+                if (!isDefaultColor && (forceReveal || this.shouldRevealDeleteOnPointer(event))) {
+                    // キーボード等で強制的に表示する場合は即時に表示する
+                    if (forceReveal) {
+                        this.revealDeleteButton(colorDiv);
+                    } else {
+                        // タップ直後に削除ボタンがクリック可能になるのを防ぐため、少し遅らせて表示する
+                        if (this.deleteShowDelayTimer) {
+                            clearTimeout(this.deleteShowDelayTimer);
+                        }
+                        this.deleteShowDelayTimer = setTimeout(() => {
+                            this.revealDeleteButton(colorDiv);
+                            this.deleteShowDelayTimer = null;
+                        }, 200); // 200ms：タッチの連続動作を防ぐ小さなデバウンス
+                    }
+                }
+            };
+
+            d3.select(colorDiv)
+                .on('pointerdown.penTool', (event) => {
+                    selectColor(event);
+                })
+                .on('keydown.penTool', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                        event.preventDefault();
+                        selectColor(event, { forceReveal: true });
+                    }
+                })
+                .on('focusin.penTool', () => {
+                    if (!this.isOpen) {
+                        this.showColorPicker();
+                    }
+                });
+
+            // カスタム色には削除ボタンを常時表示（ホバーで強調）
+            if (!isDefaultColor) {
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'color-preset-delete';
-                deleteBtn.innerHTML = '<i class="material-symbols-rounded">close</i>';
-                d3.select(deleteBtn).on('pointerdown.penTool', (e) => {
+                deleteBtn.innerHTML = '<i class="material-symbols-rounded">delete</i>';
+                deleteBtn.setAttribute('type', 'button');
+                deleteBtn.setAttribute('aria-label', 'Remove color from palette');
+                d3.select(deleteBtn).on('click.penTool', (e) => {
+                    // DOM上は存在していても、実際に表示されていない（.show-delete が無い）場合は無視する
+                    if (!colorDiv.classList.contains('show-delete')) return;
                     e.stopPropagation();
+                    e.preventDefault();
+                    this.clearDeleteRevealState(colorDiv);
                     this.deleteColorFromPalette(index);
                 });
                 colorDiv.appendChild(deleteBtn);
-                colorDiv.classList.add('deletable');
             }
 
             presetsContainer.appendChild(colorDiv);
         });
-
-        // プラスボタンを追加
-        const addColorDiv = document.createElement('div');
-        addColorDiv.className = `color-preset add-color palette-action-btn ${this.deleteMode ? 'disabled' : ''}`;
-        addColorDiv.innerHTML = '<i class="material-symbols-rounded none-event">add</i>';
-        d3.select(addColorDiv).on('pointerdown.penTool', () => this.addColorToPalette());
-
-        // 削除モードボタンを追加
-        const deleteBtn = document.createElement('div');
-        deleteBtn.className = `color-preset palette-action-btn delete-mode-btn ${this.deleteMode ? 'active' : ''} ${!hasCustomColors ? 'disabled' : ''}`;
-        deleteBtn.innerHTML = '<i class="material-symbols-rounded">delete</i>';
-        d3.select(deleteBtn).on('pointerdown.penTool', () => {
-            if (hasCustomColors) {
-                this.toggleDeleteMode();
-            }
-        });
-
-        presetsContainer.appendChild(addColorDiv);
-        presetsContainer.appendChild(deleteBtn);
     }
-
     /**
      * カラーパレットに現在の色を追加
      */
@@ -342,6 +462,8 @@ export class PenToolManager {
         // デフォルト色は削除できないように
         if (index < this.defaultColors.length) return;
 
+        this.clearDeleteRevealState();
+
         // 削除前のパレット状態を保存
         const oldPalette = [...this.colorPalette];
         const deletedColor = this.colorPalette[index];
@@ -367,52 +489,142 @@ export class PenToolManager {
         this.saveCustomColors();
     }
 
+    revealDeleteButton(presetElement) {
+        if (!presetElement) return;
+
+        if (this.activeDeletePreset && this.activeDeletePreset !== presetElement) {
+            this.activeDeletePreset.classList.remove('show-delete');
+        }
+
+        presetElement.classList.add('show-delete');
+        this.activeDeletePreset = presetElement;
+
+        if (this.deleteRevealTimer) {
+            clearTimeout(this.deleteRevealTimer);
+        }
+
+        this.deleteRevealTimer = setTimeout(() => {
+            this.clearDeleteRevealState();
+        }, 5000);
+    }
+
+    clearDeleteRevealState(targetElement = null) {
+        if (this.deleteRevealTimer) {
+            clearTimeout(this.deleteRevealTimer);
+            this.deleteRevealTimer = null;
+        }
+
+        // もし短い遅延での表示待ちがあれば取り消す（タップ直後に表示されるのを防止）
+        if (this.deleteShowDelayTimer) {
+            clearTimeout(this.deleteShowDelayTimer);
+            this.deleteShowDelayTimer = null;
+        }
+
+        const element = targetElement || this.activeDeletePreset;
+        if (element) {
+            element.classList.remove('show-delete');
+        }
+
+        if (!targetElement || targetElement === this.activeDeletePreset) {
+            this.activeDeletePreset = null;
+        }
+    }
+
+    shouldRevealDeleteOnPointer(event) {
+        if (!event) return false;
+
+        if (event.pointerType) {
+            if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+                return true;
+            }
+            if (event.pointerType === 'mouse') {
+                return false;
+            }
+        }
+
+        if (event.type && event.type.startsWith('touch')) {
+            return true;
+        }
+
+        if (this.coarsePointerMatcher && this.coarsePointerMatcher.matches) {
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * カラーピッカーとサイズスライダーのイベントリスナーを設定
      */
     setupEventListeners() {
-        // カラーツールボタンのクリックイベントを設定
-        const colorToolBtn = document.getElementById('color-tool');
-        if (colorToolBtn) {
-            d3.select(colorToolBtn).on('pointerdown.penTool', (e) => {
-                this.togglePanel();
-            });
-        }
-
         // カラーピッカーを閉じるボタン
         const closeBtn = document.getElementById('close-color-picker');
         if (closeBtn) {
-            d3.select(closeBtn).on('pointerdown.penTool', () => this.hideColorPicker());
+            d3.select(closeBtn).on('click.penTool', () => this.hideColorPicker());
         }
 
-        // 削除モード切り替えボタン
-        const deleteBtn = document.getElementById('toggle-delete-mode');
-        if (deleteBtn) {
-            d3.select(deleteBtn).on('pointerdown.penTool', () => this.toggleDeleteMode());
+        // カラーピッカー折りたたみボタン（PC向け）
+        if (this.closeButton && this.panel) {
+            const prefersDesktopLayout = typeof window.matchMedia === 'function'
+                ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
+                : true;
+
+            if (prefersDesktopLayout) {
+                const closeButtonSelection = d3.select(this.closeButton);
+                closeButtonSelection
+                    .on('click.penTool', (event) => {
+                        event.preventDefault();
+                        this.toggleColorPickerCollapsed();
+                    })
+                    .on('keydown.penTool', (event) => {
+                        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                            event.preventDefault();
+                            this.toggleColorPickerCollapsed();
+                        }
+                    });
+            }
         }
 
-        // パレット削除モードの終了ボタン
-        const paletteExitDeleteModeBtn = document.querySelector('.palette-exit-delete-mode-btn');
-        if (paletteExitDeleteModeBtn) {
-            d3.select(paletteExitDeleteModeBtn).on('pointerdown.penTool', () => {
-                if (this.deleteMode) {
-                    this.toggleDeleteMode();
-                }
-            });
+        if (this.colorPreview) {
+            const previewSelection = d3.select(this.colorPreview);
+            previewSelection
+                .on('click.penTool', (event) => {
+                    event.preventDefault();
+                    this.addColorToPalette();
+                })
+                .on('keydown.penTool', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                        event.preventDefault();
+                        this.addColorToPalette();
+                    }
+                })
+                .on('pointerdown.penToolStart', () => {
+                    if (!this.isOpen) {
+                        this.showColorPicker();
+                    }
+                })
+                .on('focus.penToolStart', () => {
+                    if (!this.isOpen) {
+                        this.showColorPicker();
+                    }
+                });
         }
 
-        // Hueスライダーの変更イベント
-        if (this.hueSlider) {
-            d3.select(this.hueSlider).on('input.penTool', () => {
-                this.hsv.h = parseInt(this.hueSlider.value);
-                this.updateColorArea();
-                this.updateSelectedColor();
-                this.applyColor();
-            });
-        }
+
 
         // サイズスライダーの変更イベント
         if (this.sizeSlider) {
+            d3.select(this.sizeSlider)
+                .on('pointerdown.penToolStart', () => {
+                    if (!this.isOpen) {
+                        this.showColorPicker();
+                    }
+                })
+                .on('focus.penToolStart', () => {
+                    if (!this.isOpen) {
+                        this.showColorPicker();
+                    }
+                });
             d3.select(this.sizeSlider).on('input.penTool', (event) => {
                 const newSize = Number(event.target.value);
                 this.settings.currentSize = newSize;
@@ -431,86 +643,204 @@ export class PenToolManager {
             });
         }
 
-        // カラーエリアのクリックとドラッグイベント
-        if (this.colorArea) {
-            d3.select(this.colorArea).on('pointerdown.penTool', (e) => {
-                this.updateColorFromPosition(e);
+        // Hueリング（ドーナツ）のクリックとドラッグイベント
+        if (this.hueRingCanvas) {
+            d3.select(this.hueRingCanvas).on('pointerdown.penTool', (e) => {
+                // タッチ／ポインターでのドラッグを有効にする
+                if (!this.isOpen) {
+                    this.showColorPicker();
+                }
+                if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+                if (!this.initialColor) {
+                    this.beginColorChange();
+                }
+
+                this._clearActivePointer();
+                this._setActivePointer('hue', e);
+
+                // pointer capture を試みる（連続的に pointermove を受け取るため）
+                if (e && e.pointerId && e.target && typeof e.target.setPointerCapture === 'function') {
+                    e.target.setPointerCapture(e.pointerId);
+                }
+
+                this.updateHueFromPointer(e);
                 this.applyColor();
-                const mouseMoveHandler = (moveEvent) => {
-                    this.updateColorFromPosition(moveEvent);
+                const moveHandler = (moveEvent) => {
+                    if (!this._isEventFromActivePointer('hue', moveEvent)) return;
+                    if (moveEvent && typeof moveEvent.preventDefault === 'function') moveEvent.preventDefault();
+                    this.updateHueFromPointer(moveEvent);
                     this.applyColor();
                 };
-                const mouseUpHandler = () => {
+                const upHandler = (upEvent) => {
+                    if (!this._isEventFromActivePointer('hue', upEvent)) return;
+                    if (e && e.pointerId && e.target && typeof e.target.releasePointerCapture === 'function') {
+                        e.target.releasePointerCapture(e.pointerId);
+                    }
+
+                    // finalize color change for history when dragging ends
+                    this.finishColorChange();
+                    this._clearActivePointer('hue');
+
                     d3.select(document)
-                        .on('mousemove.penToolDrag', null)
-                        .on('touchmove.penToolDrag', null)
-                        .on('mouseup.penToolDrag', null)
-                        .on('touchend.penToolDrag', null);
+                        .on('pointermove.penToolHueDrag', null)
+                        .on('pointerup.penToolHueDrag', null)
+                        .on('touchmove.penToolHueDrag', null)
+                        .on('touchend.penToolHueDrag', null)
+                        .on('touchcancel.penToolHueDrag', null)
+                        .on('pointercancel.penToolHueDrag', null);
                 };
+
                 d3.select(document)
-                    .on('mousemove.penToolDrag', mouseMoveHandler)
-                    .on('touchmove.penToolDrag', mouseMoveHandler)
-                    .on('mouseup.penToolDrag', mouseUpHandler)
-                    .on('touchend.penToolDrag', mouseUpHandler);
+                    .on('pointermove.penToolHueDrag', moveHandler)
+                    .on('pointerup.penToolHueDrag', upHandler)
+                    .on('pointercancel.penToolHueDrag', upHandler)
+                    .on('touchmove.penToolHueDrag', moveHandler)
+                    .on('touchend.penToolHueDrag', upHandler)
+                    .on('touchcancel.penToolHueDrag', upHandler);
+            });
+        }
+
+        // SV正方形のクリックとドラッグイベント
+        if (this.svSquareCanvas) {
+            d3.select(this.svSquareCanvas).on('pointerdown.penTool', (e) => {
+                // タッチ／ポインターでのドラッグを有効にする
+                if (!this.isOpen) {
+                    this.showColorPicker();
+                }
+                if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+                if (!this.initialColor) {
+                    this.beginColorChange();
+                }
+
+                this._clearActivePointer();
+                this._setActivePointer('sv', e);
+
+                // pointer capture を試みる
+                if (e && e.pointerId && e.target && typeof e.target.setPointerCapture === 'function') {
+                    e.target.setPointerCapture(e.pointerId);
+                }
+
+                this.updateSVFromPointer(e);
+                this.applyColor();
+                const moveHandler = (moveEvent) => {
+                    if (!this._isEventFromActivePointer('sv', moveEvent)) return;
+                    if (moveEvent && typeof moveEvent.preventDefault === 'function') moveEvent.preventDefault();
+                    this.updateSVFromPointer(moveEvent);
+                    this.applyColor();
+                };
+                const upHandler = (upEvent) => {
+                    if (!this._isEventFromActivePointer('sv', upEvent)) return;
+                    if (e && e.pointerId && e.target && typeof e.target.releasePointerCapture === 'function') {
+                        e.target.releasePointerCapture(e.pointerId);
+                    }
+
+                    // finalize color change for history when dragging ends
+                    this.finishColorChange();
+                    this._clearActivePointer('sv');
+
+                    d3.select(document)
+                        .on('pointermove.penToolSVDrag', null)
+                        .on('pointerup.penToolSVDrag', null)
+                        .on('touchmove.penToolSVDrag', null)
+                        .on('touchend.penToolSVDrag', null)
+                        .on('touchcancel.penToolSVDrag', null)
+                        .on('pointercancel.penToolSVDrag', null);
+                };
+
+                d3.select(document)
+                    .on('pointermove.penToolSVDrag', moveHandler)
+                    .on('pointerup.penToolSVDrag', upHandler)
+                    .on('pointercancel.penToolSVDrag', upHandler)
+                    .on('touchmove.penToolSVDrag', moveHandler)
+                    .on('touchend.penToolSVDrag', upHandler)
+                    .on('touchcancel.penToolSVDrag', upHandler);
             });
         }
 
         // HEXカラー入力フィールドの変更イベント
         if (this.hexInput) {
-            d3.select(this.hexInput).on('change.penTool', () => {
-                let hex = this.hexInput.value;
-                if (!hex.startsWith('#')) {
-                    hex = '#' + hex;
-                }
-                if (/^#[0-9A-F]{6}$/i.test(hex)) {
-                    this.setColorFromHex(hex);
-                    this.applyColor();
-                } else {
-                    this.hexInput.value = this.rgbToHex(this.hsvToRgb(this.hsv.h, this.hsv.s, this.hsv.v));
-                }
-            });
+            d3.select(this.hexInput)
+                .on('focus.penToolStart', () => {
+                    if (!this.isOpen) {
+                        this.showColorPicker();
+                    }
+                })
+                .on('change.penTool', () => {
+                    let hex = this.hexInput.value;
+                    if (!hex.startsWith('#')) {
+                        hex = '#' + hex;
+                    }
+                    if (/^#[0-9A-F]{6}$/i.test(hex)) {
+                        this.setColorFromHex(hex);
+                        this.applyColor();
+                    } else {
+                        this.hexInput.value = this.rgbToHex(this.hsvToRgb(this.hsv.h, this.hsv.s, this.hsv.v));
+                    }
+                });
         }
 
-        d3.select(document).on('pointerdown.penToolPreset', (e) => {
-            if (e.target.closest('.color-preset') && e.target.closest('.color-preset').getAttribute('data-color')) {
-                const hexColor = e.target.closest('.color-preset').getAttribute('data-color');
-                if (hexColor && !this.deleteMode) {
-                    this.setColorFromHex(hexColor);
-                    this.applyColor();
-                }
-            }
-        });
-
         d3.select(document).on('pointerdown.penToolPanel', (e) => {
-            if (e.target.id === 'color-tool' || e.target.closest('#color-tool')) {
+            if (!this.panel) return;
+
+            const tgt = e.target;
+
+            if (this.isPanelEmbedded()) return;
+
+            if (tgt && tgt.closest && (tgt.closest('.action-tools') || tgt.closest('.color-preset'))) {
                 return;
             }
-            if (e.target.classList.contains('color-preset') || e.target.closest('.color-preset')) {
-                return;
-            }
-            if (this.isOpen && !this.panel.contains(e.target)) {
+
+            if (this.isOpen && !this.panel.contains(tgt)) {
                 this.applyColor();
                 this.hideColorPicker();
             }
         });
 
+        d3.select(document).on('pointerdown.penToolPresetReveal', (event) => {
+            if (!this.activeDeletePreset) return;
+            const preset = event.target.closest('.color-preset');
+            if (preset && preset === this.activeDeletePreset) {
+                return;
+            }
+            this.clearDeleteRevealState();
+        });
+
+        d3.select(document).on('focusin.penToolPresetReveal', (event) => {
+            if (!this.activeDeletePreset) return;
+            const preset = event.target.closest('.color-preset');
+            if (preset && preset === this.activeDeletePreset) {
+                return;
+            }
+            this.clearDeleteRevealState();
+        });
+
         d3.select(document).on('keydown.penTool', (e) => {
+            if (!this.panel) return;
             if (this.isOpen && e.key === 'Escape') {
-                this.hidePanel();
+                this.hideColorPicker();
             }
         });
 
-        // ウィンドウリサイズ時にパネルを閉じる
-        d3.select(window).on('resize.penTool', () => { if (this.isOpen) this.hidePanel(); });
+        // ウィンドウリサイズ時の挙動
+        // 埋め込み（サイドバー内）表示の場合は、リサイズでタブを強制的に切り替えないようにする。
+        // 浮動（モーダル等）表示のときのみ閉じる。
+        d3.select(window).on('resize.penTool', () => {
+            if (!this.panel) return;
+            const embedded = this.isPanelEmbedded();
+            if (!embedded && this.isOpen) {
+                this.hideColorPicker();
+            }
+        });
+    }
 
-        // サイズ調整ボタンのイベントリスナー
-        const decreaseBtn = document.querySelector('.size-adjust-btn.decrease');
-        const increaseBtn = document.querySelector('.size-adjust-btn.increase');
-
-        if (decreaseBtn && increaseBtn) {
-            d3.select(decreaseBtn).on('pointerdown.penTool', () => this.adjustSize(-1));
-            d3.select(increaseBtn).on('pointerdown.penTool', () => this.adjustSize(1));
-        }
+    /**
+     * サイドバータブのアクティベーターを登録
+     * @param {(tab: string, options?: object) => void} activator
+     */
+    setSidebarTabActivator(activator) {
+        this.sidebarTabActivator = (typeof activator === 'function') ? activator : null;
     }
 
     /**
@@ -548,66 +878,24 @@ export class PenToolManager {
         }
     }
 
-    /**
-     * 削除モードの切り替え
-     */
-    toggleDeleteMode() {
-        this.deleteMode = !this.deleteMode;
-
-        // プラスボタンの状態を更新
-        const addColorBtn = document.querySelector('.color-preset.add-color');
-        if (addColorBtn) {
-            addColorBtn.classList.toggle('disabled', this.deleteMode);
-        }
-
-        // 削除モードボタンのスタイルを更新
-        const deleteBtn = document.querySelector('.delete-mode-btn');
-        if (deleteBtn) {
-            deleteBtn.classList.toggle('active', this.deleteMode);
-        }
-
-        // パレットを更新して削除ボタンを表示/非表示
-        this.updateColorPalette();
-
-        // パレット削除モードのオーバーレイを表示/非表示
-        let overlay = document.getElementById('palette-delete-notification');
-        if (!overlay && this.deleteMode) {
-            overlay = document.createElement('div');
-            overlay.id = 'palette-delete-notification';
-            overlay.className = 'palette-delete-notification';
-            overlay.innerHTML = `
-                <span>
-                    <i class="material-symbols-rounded">warning</i>
-                    <span data-i18n="pen_panel.palette.delete_mode">パレット削除モード: 削除したい色の×ボタンをクリックしてください</span>
-                </span>
-                <button class="palette-exit-delete-mode-btn" data-i18n="pen_panel.palette.exit">削除モード終了</button>
-            `;
-
-            // カラーピッカーパネルに追加
-            const panel = document.getElementById('color-picker-panel');
-            if (panel) {
-                panel.appendChild(overlay);
-
-                // 終了ボタンにイベントリスナーを追加
-                const exitBtn = overlay.querySelector('.palette-exit-delete-mode-btn');
-                if (exitBtn) {
-                    exitBtn.addEventListener('click', () => this.toggleDeleteMode());
-                }
-            }
-
-            const i18nElements = overlay.querySelectorAll('[data-i18n]');
-            i18nElements.forEach(el => {
-                this.languageManager.updateSpecificElement(el);
-            });
-
-            overlay.classList.toggle('visible', this.deleteMode);
-        }
+    isPanelEmbedded() {
+        if (!this.panel) return false;
+        if (this.panel.dataset.embedded === 'true') return true;
+        return this.panel.classList.contains('color-picker-panel--embedded');
     }
 
     /**
      * カラーピッカーを表示
      */
     showColorPicker() {
+        if (!this.panel) return;
+
+        if (this.sidebarTabActivator && !this._suppressSidebarTabActivation) {
+            this._suppressSidebarTabActivation = true;
+            this.sidebarTabActivator('color', { skipPenToolSync: true });
+            this._suppressSidebarTabActivation = false;
+        }
+
         // 初期色を保存（履歴追跡用）
         this.initialColor = this.settings.currentColor || '#000000';
         this.initialSize = this.settings.currentSize;
@@ -619,31 +907,7 @@ export class PenToolManager {
         const initialColor = this.settings.currentColor || '#000000';
         this.setColorFromHex(initialColor);
 
-        // カラーツールボタンの位置を基準にパネルを配置
-        const colorToolBtn = document.getElementById('color-tool');
-        if (colorToolBtn) {
-            const rect = colorToolBtn.getBoundingClientRect();
-            const viewportHeight = window.innerHeight;
-            const panelHeight = this.panel.offsetHeight || 350; // 推定値
-
-            // パネルの位置を計算
-            let top = rect.bottom + 10; // ボタンの下に10pxのスペース
-            let left = rect.left;
-
-            // 画面下部に収まるかチェック
-            if (top + panelHeight > viewportHeight) {
-                // 収まらない場合はツールの上に表示
-                top = rect.top - panelHeight - 5;
-            }
-
-            // 画面左端からはみ出さないように調整
-            if (left < 10) {
-                left = 10;
-            }
-
-            this.panel.style.top = `${top}px`;
-            this.panel.style.left = `${left}px`;
-        }
+        const embedded = this.isPanelEmbedded();
 
         // サイズスライダーが表示されていれば非表示にする
         const sizeSliderContainer = document.getElementById('size-slider-container');
@@ -651,14 +915,26 @@ export class PenToolManager {
             sizeSliderContainer.classList.remove('visible');
         }
 
+        if (this.closeButton) {
+            this.setColorPickerCollapsed(false);
+        }
+
         this.panel.classList.add('visible');
         this.isOpen = true;
+
+        if (embedded) {
+            this.panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 
     /**
      * カラーピッカーを非表示
      */
     hideColorPicker() {
+        if (!this.panel) return;
+
+        const embedded = this.isPanelEmbedded();
+
         // 色が変更されていた場合、履歴に記録
         if (this.initialColor && this.settings.currentColor !== this.initialColor) {
             // 色変更を完了
@@ -666,18 +942,62 @@ export class PenToolManager {
             this.finishColorChange();
         }
 
-        this.panel.classList.remove('visible');
+        if (!embedded) {
+            this.panel.classList.remove('visible');
+        }
         this.isOpen = false;
 
-        // 削除モードを解除
-        if (this.deleteMode) {
-            this.toggleDeleteMode();
+        if (embedded && this.sidebarTabActivator && !this._suppressSidebarTabActivation) {
+            this._suppressSidebarTabActivation = true;
+            this.sidebarTabActivator('curves', { skipPenToolSync: true });
+            this._suppressSidebarTabActivation = false;
         }
+
+        this._clearActivePointer();
+        this.clearDeleteRevealState();
 
         // 初期色・サイズをリセット
         this.initialColor = null;
         this.initialSize = null;
         this.lastSelectedColor = null;
+    }
+
+    /**
+     * カラーピッカーの表示状態を折りたたむ/展開する
+     * @param {boolean} collapsed - true なら折りたたみ、false なら展開
+     */
+    setColorPickerCollapsed(collapsed) {
+        if (!this.panel || !this.closeButton) return;
+
+        const shouldCollapse = Boolean(collapsed);
+        this.panel.classList.toggle('collapsed', shouldCollapse);
+        this.closeButton.classList.toggle('rotated', shouldCollapse);
+        this.closeButton.setAttribute('aria-expanded', shouldCollapse ? 'false' : 'true');
+        this.closeButton.setAttribute('aria-label', shouldCollapse ? 'カラーピッカーを展開する' : 'カラーピッカーを折りたたむ');
+        this.closeButton.setAttribute('title', shouldCollapse ? '展開する' : '折りたたむ');
+    }
+
+    /**
+     * 折りたたみボタンのトグル処理
+     */
+    toggleColorPickerCollapsed() {
+        if (!this.panel) return;
+
+        const isCurrentlyCollapsed = this.panel.classList.contains('collapsed');
+
+        if (isCurrentlyCollapsed) {
+            this.showColorPicker();
+        } else {
+            this.setColorPickerCollapsed(true);
+            this.isOpen = false;
+            if (this.initialColor && this.settings.currentColor !== this.initialColor) {
+                this.finishColorChange();
+            }
+            this.initialColor = null;
+            this.initialSize = null;
+            this.lastSelectedColor = null;
+            this.clearDeleteRevealState();
+        }
     }
 
     /**
@@ -702,45 +1022,19 @@ export class PenToolManager {
      * カラーエリアでのマウス位置から色を更新
      * @param {MouseEvent} e - マウスイベント
      */
-    updateColorFromPosition(e) {
-        const rect = this.colorArea.getBoundingClientRect();
-        let x, y;
-        if (e.touches && e.touches.length > 0) {
-            x = e.touches[0].clientX - rect.left;
-            y = e.touches[0].clientY - rect.top;
-        } else if (e instanceof MouseEvent) {
-            x = e.clientX - rect.left;
-            y = e.clientY - rect.top;
-        } else {
-            console.error("予期しないイベントタイプ", event);
-            return; // または適切なエラー処理
-        }
 
-        // 範囲内に収める
-        x = Math.max(0, Math.min(rect.width, x));
-        y = Math.max(0, Math.min(rect.height, y));
-
-        // HSVに変換
-        this.hsv.s = x / rect.width;
-        this.hsv.v = 1 - (y / rect.height);
-
-        // カーソル位置を更新
-        this.colorCursor.style.left = `${x}px`;
-        this.colorCursor.style.top = `${y}px`;
-        this.colorCursor.style.display = 'block';
-
-        // 選択色を更新
-        this.updateSelectedColor();
-    }
 
     /**
-     * カラーエリアの背景色を更新（Hueに基づく）
+     * カラーエリアの描画を更新（Hue/Saturation円 + Value適用）
      */
     updateColorArea() {
-        const hueColor = this.hsvToRgb(this.hsv.h, 1, 1);
-        const hueHex = this.rgbToHex(hueColor);
-        this.colorArea.style.background = `linear-gradient(to bottom, rgba(0,0,0,0), #000), linear-gradient(to right, #fff, ${hueHex})`;
+        // Update both hue ring and SV square
+        this.renderHueRing();
+        this.renderSVSquare();
+        this.updateCursorPositions();
     }
+
+
 
     /**
      * 選択された色を更新
@@ -779,23 +1073,15 @@ export class PenToolManager {
         const hsv = this.rgbToHsv(r, g, b);
         this.hsv = hsv;
 
-        // スライダーとUI更新
-        this.hueSlider.value = hsv.h;
+        // UI更新
         this.updateColorArea();
-
-        // カラーエリア内でのカーソル位置を計算
-        const rect = this.colorArea.getBoundingClientRect();
-        const x = hsv.s * rect.width;
-        const y = (1 - hsv.v) * rect.height;
-
-        // カーソルを配置
-        this.colorCursor.style.left = `${x}px`;
-        this.colorCursor.style.top = `${y}px`;
-        this.colorCursor.style.display = 'block';
-
-        // 選択色を更新
         this.updateSelectedColor();
     }
+
+    /**
+     * Valueスライダーの見た目を現在のHue/Saturationに合わせて更新
+     */
+
 
     /**
      * HSVからRGBに変換
@@ -871,58 +1157,262 @@ export class PenToolManager {
     }
 
     /**
-     * カラーピッカーを表示
+     * Hueリング（ドーナツ）を描画
+     * @private
      */
-    showPanel() {
-        if (!this.panel) return;
+    renderHueRing() {
+        if (!this.hueRingCtx || !this.hueRingCanvas) return;
 
-        if (this.colorDisplay) {
-            const rect = this.colorDisplay.getBoundingClientRect();
-            const viewportHeight = window.innerHeight;
-            const panelHeight = this.panel.offsetHeight || 350; // 推定値
+        const canvas = this.hueRingCanvas;
+        const ctx = this.hueRingCtx;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const outerRadius = Math.min(centerX, centerY) - 2;
+        const innerRadius = outerRadius * 0.73; // 内側半径を外側の73%に設定
 
-            // パネルの位置を計算
-            let top = rect.bottom + 10; // カラーディスプレイの下に10pxのスペース
-            let left = rect.left - 20; // 左に20pxオフセット
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 画面下部に収まるかチェック
-            if (top + panelHeight > viewportHeight) {
-                // 収まらない場合はカラーディスプレイの上に表示
-                top = rect.top - panelHeight - 5;
-            }
+        const segments = 360;
+        // Align hue=0 at the top of the ring (−90° rotation from canvas 0 rad which is +X axis)
+        for (let i = 0; i < segments; i++) {
+            // compute angles so that hue 0 is at -PI/2 (top)
+            const angle = (i / segments) * 2 * Math.PI - Math.PI / 2;
+            const nextAngle = ((i + 1) / segments) * 2 * Math.PI - Math.PI / 2;
+            const hue = (i / segments) * 360;
 
-            // 画面左端からはみ出さないように調整
-            if (left < 10) {
-                left = 10;
-            }
+            const rgb = this.hsvToRgb(hue, 1, 1);
+            ctx.fillStyle = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
 
-            this.panel.style.top = `${top}px`;
-            this.panel.style.left = `${left}px`;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, outerRadius, angle, nextAngle);
+            ctx.arc(centerX, centerY, innerRadius, nextAngle, angle, true);
+            ctx.closePath();
+            ctx.fill();
         }
-
-        this.panel.classList.add('visible');
-        this.isOpen = true;
     }
 
     /**
-     * カラーピッカーを非表示
+     * SV正方形を描画
+     * @private
      */
-    hidePanel() {
-        if (!this.panel) return;
+    renderSVSquare() {
+        if (!this.svSquareCtx || !this.svSquareCanvas) return;
 
-        this.panel.classList.remove('visible');
-        this.isOpen = false;
+        const canvas = this.svSquareCanvas;
+        const ctx = this.svSquareCtx;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        const imageData = ctx.createImageData(width, height);
+        const data = imageData.data;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const saturation = x / (width - 1);
+                const value = 1 - (y / (height - 1));
+
+                const rgb = this.hsvToRgb(this.hsv.h, saturation, value);
+                const index = (y * width + x) * 4;
+
+                data[index] = rgb.r;     // Red
+                data[index + 1] = rgb.g; // Green
+                data[index + 2] = rgb.b; // Blue
+                data[index + 3] = 255;   // Alpha
+            }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
     }
 
     /**
-     * カラーピッカーの表示状態を切り替え
+     * カーソル位置を更新
+     * @private
      */
-    togglePanel() {
-        if (this.isOpen) {
-            this.hideColorPicker();
-        } else {
-            this.showColorPicker();
+    updateCursorPositions() {
+        this.updateHueCursorPosition();
+        this.updateSVCursorPosition();
+    }
+
+    /**
+     * Hueカーソル位置を更新
+     * @private
+     */
+    updateHueCursorPosition() {
+        if (!this.hueRingCursor || !this.hueRingCanvas) return;
+
+        const canvas = this.hueRingCanvas;
+        // Use bounding rect so CSS scaling (especially on mobile) is handled correctly
+        const rect = canvas.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const outerRadius = Math.min(centerX, centerY) - 2;
+        const innerRadius = outerRadius * 0.73;
+        const midRadius = (outerRadius + innerRadius) / 2;
+
+        // Convert stored hue to radians; subtract PI/2 to align 0 at top when computing coords
+        const angle = (this.hsv.h / 360) * 2 * Math.PI - Math.PI / 2;
+        const x = centerX + Math.cos(angle) * midRadius;
+        const y = centerY + Math.sin(angle) * midRadius;
+
+        this.hueRingCursor.style.left = `${x}px`;
+        this.hueRingCursor.style.top = `${y}px`;
+        this.hueRingCursor.setAttribute('aria-valuenow', Math.round(this.hsv.h));
+    }
+
+    /**
+     * SVカーソル位置を更新
+     * @private
+     */
+    updateSVCursorPosition() {
+        if (!this.svSquareCursor || !this.svSquareCanvas) return;
+        const canvas = this.svSquareCanvas;
+        // Use bounding rect for CSS-scaled canvas (mobile DPI / responsive scaling)
+        const rect = canvas.getBoundingClientRect();
+        const x = this.hsv.s * rect.width;
+        const y = (1 - this.hsv.v) * rect.height;
+
+        this.svSquareCursor.style.left = `${x}px`;
+        this.svSquareCursor.style.top = `${y}px`;
+
+        const svValue = Math.round((this.hsv.s + this.hsv.v) * 50);
+        this.svSquareCursor.setAttribute('aria-valuenow', svValue);
+    }
+
+    _extractPrimaryTouch(event) {
+        if (!event) return null;
+        const pickFirst = (list) => {
+            if (!list || typeof list.length !== 'number' || list.length === 0) return null;
+            return list[0];
+        };
+        return pickFirst(event.touches) ||
+            pickFirst(event.changedTouches) ||
+            this._extractPrimaryTouch(event.sourceEvent || event.srcEvent || null);
+    }
+
+    _setActivePointer(type, event) {
+        const pointerId = (event && typeof event.pointerId === 'number') ? event.pointerId : null;
+        const touch = this._extractPrimaryTouch(event);
+        const touchId = touch && typeof touch.identifier === 'number' ? touch.identifier : null;
+        this.activePointer = { type, pointerId, touchId };
+    }
+
+    _isEventFromActivePointer(type, event) {
+        if (!this.activePointer || this.activePointer.type !== type) {
+            return false;
         }
+
+        const { pointerId, touchId } = this.activePointer;
+
+        if (event && typeof event.pointerId === 'number') {
+            return pointerId == null || event.pointerId === pointerId;
+        }
+
+        const matchesTouchList = (list) => {
+            if (touchId == null || !list || typeof list.length !== 'number') return false;
+            for (let i = 0; i < list.length; i++) {
+                const touch = list[i];
+                if (touch && touch.identifier === touchId) return true;
+            }
+            return false;
+        };
+
+        if (matchesTouchList(event && event.touches)) return true;
+        if (matchesTouchList(event && event.changedTouches)) return true;
+
+        const nested = event && (event.sourceEvent || event.srcEvent);
+        if (nested && nested !== event) {
+            return this._isEventFromActivePointer(type, nested);
+        }
+
+        if (pointerId == null && touchId == null) {
+            // フォールバック（古いブラウザなど）: 識別子が取得できない場合はアクティブ扱い
+            return true;
+        }
+
+        return false;
+    }
+
+    _clearActivePointer(type) {
+        if (!this.activePointer) return;
+        if (!type || this.activePointer.type === type) {
+            this.activePointer = null;
+        }
+    }
+
+    // イベントからクライアント座標を取得（タッチ/ポインタ両対応）
+    _getClientXY(event) {
+        if (!event) return { clientX: 0, clientY: 0 };
+        // TouchEvent
+        if (event.touches && event.touches.length) {
+            return { clientX: event.touches[0].clientX, clientY: event.touches[0].clientY };
+        }
+        if (event.changedTouches && event.changedTouches.length) {
+            return { clientX: event.changedTouches[0].clientX, clientY: event.changedTouches[0].clientY };
+        }
+        // PointerEvent / MouseEvent
+        if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+            return { clientX: event.clientX, clientY: event.clientY };
+        }
+        // d3 の場合など、ネイティブイベントが sourceEvent/srcEvent に入っている場合
+        const src = event.sourceEvent || event.srcEvent || null;
+        if (src && typeof src.clientX === 'number') {
+            return { clientX: src.clientX, clientY: src.clientY };
+        }
+        return { clientX: 0, clientY: 0 };
+    }
+
+    /**
+     * ポインタ位置からHueを更新
+     * @private
+     */
+    updateHueFromPointer(event) {
+        if (!this.hueRingCanvas) return;
+
+        const rect = this.hueRingCanvas.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const { clientX, clientY } = this._getClientXY(event);
+        const x = clientX - rect.left - centerX;
+        const y = clientY - rect.top - centerY;
+
+        const outerRadius = Math.min(centerX, centerY) - 2;
+        const innerRadius = outerRadius * 0.73;
+
+        // タッチしている位置がリングの範囲内外を問わず、
+        // 中心からの角度だけで Hue を決定する（指がどこにあっても角度で操作できる）
+        // ただし、表示されるカーソル（#hue-ring-cursor）は引き続きリング上に固定表示される。
+        let angleDeg = (Math.atan2(y, x) + Math.PI / 2) * (180 / Math.PI);
+        // 角度を [0,360) の範囲に正規化
+        angleDeg = (angleDeg % 360 + 360) % 360;
+        this.hsv.h = angleDeg;
+        this.renderSVSquare();
+        this.updateCursorPositions();
+        this.updateSelectedColor();
+    }
+
+    /**
+     * ポインタ位置からSVを更新
+     * @private
+     */
+    updateSVFromPointer(event) {
+        if (!this.svSquareCanvas) return;
+
+        const rect = this.svSquareCanvas.getBoundingClientRect();
+        const { clientX, clientY } = this._getClientXY(event);
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        // Clamp coordinates to canvas bounds
+        const clampedX = Math.max(0, Math.min(rect.width, x));
+        const clampedY = Math.max(0, Math.min(rect.height, y));
+
+        this.hsv.s = clampedX / rect.width;
+        this.hsv.v = 1 - (clampedY / rect.height);
+
+        this.updateCursorPositions();
+        this.updateSelectedColor();
     }
 
     /**
@@ -960,10 +1450,19 @@ export class PenToolManager {
      * 色をデフォルト値にリセット
      */
     resetToDefaultColor() {
-        if (this.settings.prevColor) {
-            this.settings.currentColor = this.settings.prevColor;
-            this.updateColorDisplayMini(this.settings.prevColor);
+        const defaultColor = this.settings.prevColor;
+        if (defaultColor == null) {
+            return;
         }
+
+        this.settings.currentColor = defaultColor;
+        this.currentColor = defaultColor;
+
+        if (this.colorPreview || this.hexInput || this.hueRingCanvas) {
+            this.setColorFromHex(defaultColor);
+        }
+
+        this.updateColorDisplayMini(defaultColor);
 
     }
 
@@ -971,11 +1470,19 @@ export class PenToolManager {
      * サイズをデフォルト値にリセット
      */
     resetToDefaultSize() {
-        if (this.settings.prevSize) {
-            this.settings.currentSize = this.settings.prevSize;
-            this.sizeSlider.value = this.settings.prevSize;
-            this.updateSizeDisplayMini(this.settings.prevSize);
+        const defaultSize = this.settings.prevSize;
+        if (defaultSize == null) {
+            return;
         }
+
+        this.settings.currentSize = defaultSize;
+        this.currentSize = defaultSize;
+
+        if (this.sizeSlider) {
+            this.sizeSlider.value = defaultSize;
+        }
+
+        this.updateSizeDisplayMini(defaultSize);
     }
 
     /**
@@ -983,6 +1490,8 @@ export class PenToolManager {
      * @param {string} color - 選択された色
      */
     updateColorDisplayMini(color) {
+        if (!color) return;
+        this.currentColor = color;
         if (this.colorDisplay) {
             this.colorDisplay.style.backgroundColor = color;
         }
@@ -993,9 +1502,14 @@ export class PenToolManager {
      * @param {number} size - 新しいサイズ
      */
     updateSizeDisplayMini(size) {
+        const numericSize = Number(size);
+        if (Number.isNaN(numericSize)) return;
+
+        this.currentSize = numericSize;
+
         if (this.colorDisplay) {
-            this.colorDisplay.style.width = `${size}px`;
-            this.colorDisplay.style.height = `${size}px`;
+            this.colorDisplay.style.width = `${numericSize}px`;
+            this.colorDisplay.style.height = `${numericSize}px`;
         }
     }
 
