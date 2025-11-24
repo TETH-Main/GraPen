@@ -255,17 +255,20 @@ export class PenToolManager {
                 </div>
                 <div class="color-picker-body" id="color-picker-body">
                     <div class="color-area-container">
-                        <div class="size-slider-section">
-                            <div class="size-scale">
-                                <div class="size-scale-mark" data-value="20">20</div>
-                                <div class="size-scale-mark" data-value="15">15</div>
-                                <div class="size-scale-mark" data-value="10">10</div>
-                                <div class="size-scale-mark" data-value="5">5</div>
-                                <div class="size-scale-mark" data-value="1">1</div>
-                            </div>
+                        <div class="size-slider-section" aria-label="ペンの太さ">
+                            <i class="material-symbols-rounded size-slider-icon size-slider-icon-max none-event" aria-hidden="true">eraser_size_5</i>
                             <div id="size-slider-container" class="size-slider-container">
-                                <input type="range" id="size" min="1" max="20" value="6" class="size-slider" aria-label="ペンの太さ">
+                                <input
+                                    type="range"
+                                    id="size"
+                                    min="1"
+                                    max="20"
+                                    value="6"
+                                    class="size-slider"
+                                    aria-label="ペンの太さ"
+                                >
                             </div>
+                            <i class="material-symbols-rounded size-slider-icon size-slider-icon-min none-event" aria-hidden="true">eraser_size_1</i>
                         </div>
                         <div class="color-ring-wrapper" data-role="hue-ring">
                             <canvas id="hue-ring-canvas" width="160" height="160" aria-hidden="true"></canvas>
@@ -563,26 +566,20 @@ export class PenToolManager {
             d3.select(closeBtn).on('click.penTool', () => this.hideColorPicker());
         }
 
-        // カラーピッカー折りたたみボタン（PC向け）
+        // カラーピッカー折りたたみボタン
         if (this.closeButton && this.panel) {
-            const prefersDesktopLayout = typeof window.matchMedia === 'function'
-                ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
-                : true;
-
-            if (prefersDesktopLayout) {
-                const closeButtonSelection = d3.select(this.closeButton);
-                closeButtonSelection
-                    .on('click.penTool', (event) => {
+            const closeButtonSelection = d3.select(this.closeButton);
+            closeButtonSelection
+                .on('click.penTool', (event) => {
+                    event.preventDefault();
+                    this.toggleColorPickerCollapsed();
+                })
+                .on('keydown.penTool', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
                         event.preventDefault();
                         this.toggleColorPickerCollapsed();
-                    })
-                    .on('keydown.penTool', (event) => {
-                        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
-                            event.preventDefault();
-                            this.toggleColorPickerCollapsed();
-                        }
-                    });
-            }
+                    }
+                });
         }
 
         if (this.colorPreview) {
